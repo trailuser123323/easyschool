@@ -7,7 +7,9 @@ export default function Homepage() {
   const navigate = useNavigate();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [showDemo, setShowDemo] = useState(false);
-  const [demoRole, setDemoRole] = useState(null); // null | "teacher" | "admin"
+  const [demoRole, setDemoRole] = useState(null);
+  const [showRegister, setShowRegister] = useState(false);
+  const [copied, setCopied] = useState("");
 
   useEffect(() => {
     const handleMouse = (e) => setMousePos({ x: e.clientX, y: e.clientY });
@@ -15,22 +17,27 @@ export default function Homepage() {
     return () => window.removeEventListener("mousemove", handleMouse);
   }, []);
 
-  // Lock body scroll when modal open
   useEffect(() => {
-    document.body.style.overflow = showDemo ? "hidden" : "";
+    document.body.style.overflow = (showDemo || showRegister) ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [showDemo]);
+  }, [showDemo, showRegister]);
+
+  const copyToClipboard = (text, label) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(""), 2000);
+  };
 
   const demoTeacher = { name:"Priya Ramesh", initials:"PR", email:"teacher@demo.com", subject:"Science", class:"9A", role:"teacher" };
-  const demoAdmin   = { name:"Admin Demo",   initials:"A",  email:"admin@demo.com",   role:"admin" };
+  const demoAdmin   = { name:"Admin Demo", initials:"A", email:"admin@demo.com", role:"admin" };
 
   const features = [
-    { icon:"⏱", title:"Real-Time Check-In",    desc:"GPS-verified attendance with photo capture. Know exactly when and where teachers arrive." },
-    { icon:"📊", title:"Live Analytics",        desc:"Instant dashboards showing present, late, absent counts. Monthly trends at a glance." },
-    { icon:"📅", title:"Attendance Calendar",   desc:"Visual calendar with colour-coded days. On-time, late, absent — all in one view." },
-    { icon:"📝", title:"Leave Management",      desc:"Teachers apply for leave digitally. Admin approves or rejects with one click." },
-    { icon:"📢", title:"Announcements",         desc:"Post urgent notices or info directly to all teachers. Priority-coded and timestamped." },
-    { icon:"🟢", title:"On-Duty Tracking",      desc:"Track which teachers are actively on duty with hourly location pings." },
+    { icon:"⏱", title:"Real-Time Check-In",  desc:"GPS-verified attendance with photo capture. Know exactly when and where teachers arrive." },
+    { icon:"📊", title:"Live Analytics",      desc:"Instant dashboards showing present, late, absent counts. Monthly trends at a glance." },
+    { icon:"📅", title:"Attendance Calendar", desc:"Visual calendar with colour-coded days. On-time, late, absent — all in one view." },
+    { icon:"📝", title:"Leave Management",    desc:"Teachers apply for leave digitally. Admin approves or rejects with one click." },
+    { icon:"📢", title:"Announcements",       desc:"Post urgent notices or info directly to all teachers. Priority-coded and timestamped." },
+    { icon:"🟢", title:"On-Duty Tracking",    desc:"Track which teachers are actively on duty with hourly location pings." },
   ];
 
   const stats = [
@@ -44,40 +51,35 @@ export default function Homepage() {
     <div style={{ background:"#050810", color:"#e2e8f0", fontFamily:"'DM Sans', sans-serif", minHeight:"100vh", overflowX:"hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Syne:wght@700;800&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @keyframes fadeUp   { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes float    { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-12px)} }
-        @keyframes pulse    { 0%,100%{opacity:0.4;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.05)} }
-        @keyframes shimmer  { 0%{background-position:200% center} 100%{background-position:-200% center} }
-        @keyframes glow     { 0%,100%{box-shadow:0 0 20px #3b82f640} 50%{box-shadow:0 0 60px #3b82f680} }
-        @keyframes modalIn  { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
-        @keyframes slideUp  { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes float   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+        @keyframes pulse   { 0%,100%{opacity:.4;transform:scale(1)} 50%{opacity:.8;transform:scale(1.05)} }
+        @keyframes shimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes glow    { 0%,100%{box-shadow:0 0 20px #3b82f640} 50%{box-shadow:0 0 60px #3b82f680} }
+        @keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
 
         .fade-up-1{opacity:0;animation:fadeUp .7s ease .1s forwards;}
         .fade-up-2{opacity:0;animation:fadeUp .7s ease .25s forwards;}
         .fade-up-3{opacity:0;animation:fadeUp .7s ease .4s forwards;}
         .fade-up-4{opacity:0;animation:fadeUp .7s ease .55s forwards;}
 
-        .gradient-text {
-          background:linear-gradient(135deg,#60a5fa,#a78bfa,#f472b6);
-          background-size:200% auto;
-          -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-          animation:shimmer 4s linear infinite;
-        }
-        .hero-btn {
-          display:inline-flex;align-items:center;gap:10px;
-          padding:16px 36px;border-radius:14px;
-          font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;
-          cursor:pointer;border:none;transition:all .3s;
-        }
-        .hero-btn-primary { background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;animation:glow 3s ease-in-out infinite; }
+        .gradient-text{background:linear-gradient(135deg,#60a5fa,#a78bfa,#f472b6);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 4s linear infinite;}
+
+        .hero-btn{display:inline-flex;align-items:center;gap:10px;padding:16px 36px;border-radius:14px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;border:none;transition:all .3s;}
+        .hero-btn-primary{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;animation:glow 3s ease-in-out infinite;}
         .hero-btn-primary:hover{transform:translateY(-2px) scale(1.02);filter:brightness(1.1);}
         .hero-btn-secondary{background:transparent;color:#94a3b8;border:1px solid #1e293b;}
         .hero-btn-secondary:hover{background:#0f172a;color:#e2e8f0;border-color:#334155;transform:translateY(-2px);}
+        .hero-btn-green{background:linear-gradient(135deg,#059669,#047857);color:#fff;}
+        .hero-btn-green:hover{transform:translateY(-2px) scale(1.02);filter:brightness(1.1);}
+
         .feature-card{background:#0a0f1a;border:1px solid #1e293b;border-radius:20px;padding:28px;transition:all .3s;position:relative;overflow:hidden;}
         .feature-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#2563eb08,#7c3aed08);opacity:0;transition:opacity .3s;}
         .feature-card:hover{border-color:#2563eb40;transform:translateY(-4px);box-shadow:0 20px 60px #2563eb10;}
         .feature-card:hover::before{opacity:1;}
+
         .stat-item{text-align:center;}
         .stat-value{font-family:'Syne',sans-serif;font-size:48px;font-weight:800;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
         .stat-label{color:#475569;font-size:13px;margin-top:4px;letter-spacing:1px;text-transform:uppercase;}
@@ -88,21 +90,109 @@ export default function Homepage() {
         .mockup-bar-fill{height:100%;border-radius:99px;}
         ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:#050810;}::-webkit-scrollbar-thumb{background:#1e293b;border-radius:2px;}
 
-        /* Demo modal */
+        .contact-card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:20px 24px;display:flex;align-items:center;gap:16px;transition:all .2s;cursor:pointer;}
+        .contact-card:hover{border-color:#6366f150;transform:translateY(-2px);box-shadow:0 10px 40px rgba(99,102,241,.1);}
+
         .demo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;}
         .demo-picker{animation:slideUp .4s ease;display:flex;flex-direction:column;align-items:center;gap:32px;}
-        .demo-card{background:#0d1117;border:1px solid #1e293b;border-radius:20px;padding:36px 48px;cursor:pointer;transition:all .25s;text-align:center;min-width:220px;}
-        .demo-card:hover{transform:translateY(-4px);border-color:#6366f1;box-shadow:0 20px 60px rgba(99,102,241,.2);}
+        .demo-role-card{background:#0d1117;border:1px solid #1e293b;border-radius:20px;padding:36px 48px;cursor:pointer;transition:all .25s;text-align:center;min-width:220px;}
+        .demo-role-card:hover{transform:translateY(-4px);border-color:#6366f1;box-shadow:0 20px 60px rgba(99,102,241,.2);}
         .demo-frame{animation:modalIn .35s ease;background:#0b0f1a;border-radius:16px;overflow:hidden;width:95vw;max-width:1300px;height:88vh;display:flex;flex-direction:column;}
         .demo-topbar{background:#0d1117;border-bottom:1px solid #1e293b;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
         .demo-content{flex:1;overflow:auto;}
       `}</style>
 
-      {/* DEMO MODAL */}
+      {/* ── REGISTER MODAL ── */}
+      {showRegister && (
+        <div className="demo-overlay" onClick={(e) => { if(e.target.classList.contains("demo-overlay")) setShowRegister(false); }}>
+          <div style={{ animation:"modalIn .35s ease", background:"#0d1117", border:"1px solid #1e293b", borderRadius:20, padding:40, width:480, maxWidth:"92vw" }}>
+            
+            {/* Header */}
+            <div style={{ textAlign:"center", marginBottom:32 }}>
+              <div style={{ fontSize:48, marginBottom:12 }}>🏫</div>
+              <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:800, marginBottom:8 }}>
+                Register Your School
+              </h2>
+              <p style={{ color:"#64748b", fontSize:14, lineHeight:1.6 }}>
+                Get in touch with us to set up AttendTrack for your school. We'll have you up and running within 24 hours!
+              </p>
+            </div>
+
+            {/* Contact cards */}
+            <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:28 }}>
+              
+              {/* WhatsApp */}
+              <a href="https://wa.me/919075501269" target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none" }}>
+                <div className="contact-card" style={{ borderColor:"#166534" }}>
+                  <div style={{ width:48, height:48, borderRadius:14, background:"#052e16", border:"1px solid #166534", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>💬</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, color:"#64748b", marginBottom:3 }}>WhatsApp Us</div>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#4ade80" }}>+91 90755 01269</div>
+                    <div style={{ fontSize:11, color:"#166534", marginTop:2 }}>Tap to open WhatsApp →</div>
+                  </div>
+                  <div style={{ fontSize:20 }}>→</div>
+                </div>
+              </a>
+
+              {/* Phone call */}
+              <a href="tel:+919075501269" style={{ textDecoration:"none" }}>
+                <div className="contact-card">
+                  <div style={{ width:48, height:48, borderRadius:14, background:"#0b0f1a", border:"1px solid #1e293b", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>📞</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, color:"#64748b", marginBottom:3 }}>Call Us</div>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#e2e8f0" }}>+91 90755 01269</div>
+                    <div style={{ fontSize:11, color:"#475569", marginTop:2 }}>Mon–Sat, 9 AM – 6 PM</div>
+                  </div>
+                  <div style={{ fontSize:20, color:"#475569" }}>→</div>
+                </div>
+              </a>
+
+              {/* Email */}
+              <a href="mailto:nihaswain7@gmail.com?subject=School Registration — AttendTrack&body=Hi, I'd like to register my school on AttendTrack.%0A%0ASchool Name: %0AAdmin Name: %0ACity: %0ANumber of Teachers: " style={{ textDecoration:"none" }}>
+                <div className="contact-card" style={{ borderColor:"#1e3a5f" }}>
+                  <div style={{ width:48, height:48, borderRadius:14, background:"#0c1a2e", border:"1px solid #1e3a5f", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>✉️</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, color:"#64748b", marginBottom:3 }}>Email Us</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:"#60a5fa" }}>nihaswain7@gmail.com</div>
+                    <div style={{ fontSize:11, color:"#1e3a5f", marginTop:2, color:"#3b82f6" }}>Tap to send pre-filled email →</div>
+                  </div>
+                  <div style={{ fontSize:20, color:"#3b82f6" }}>→</div>
+                </div>
+              </a>
+
+              {/* Copy email */}
+              <div className="contact-card" onClick={() => copyToClipboard("nihaswain7@gmail.com", "email")} style={{ cursor:"pointer" }}>
+                <div style={{ width:48, height:48, borderRadius:14, background:"#0b0f1a", border:"1px solid #1e293b", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>📋</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, color:"#64748b", marginBottom:3 }}>Copy Email Address</div>
+                  <div style={{ fontSize:14, fontWeight:600, color:"#94a3b8", fontFamily:"monospace" }}>nihaswain7@gmail.com</div>
+                </div>
+                <div style={{ fontSize:12, color: copied==="email"?"#22c55e":"#475569", fontWeight:600 }}>
+                  {copied==="email" ? "✓ Copied!" : "Copy"}
+                </div>
+              </div>
+            </div>
+
+            {/* What to include note */}
+            <div style={{ background:"#0b0f1a", border:"1px solid #1e293b", borderRadius:12, padding:16, marginBottom:24 }}>
+              <div style={{ fontSize:12, color:"#64748b", marginBottom:8, fontWeight:600, letterSpacing:.5 }}>📝 INCLUDE IN YOUR MESSAGE</div>
+              {["School name & city", "Admin name & contact", "Number of teachers", "Preferred start date"].map((item, i) => (
+                <div key={i} style={{ fontSize:13, color:"#94a3b8", marginBottom:5, display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ color:"#22c55e", fontSize:11 }}>✓</span> {item}
+                </div>
+              ))}
+            </div>
+
+            <button onClick={() => setShowRegister(false)} style={{ width:"100%", background:"#1e293b", border:"none", borderRadius:12, padding:"12px", fontSize:14, fontWeight:600, color:"#94a3b8", cursor:"pointer" }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── DEMO MODAL ── */}
       {showDemo && (
         <div className="demo-overlay" onClick={(e) => { if(e.target.classList.contains("demo-overlay")) { setShowDemo(false); setDemoRole(null); }}}>
-
-          {/* Role picker */}
           {!demoRole && (
             <div className="demo-picker">
               <div style={{ textAlign:"center" }}>
@@ -112,7 +202,7 @@ export default function Homepage() {
                 <p style={{ color:"#64748b", fontSize:15 }}>Choose a role to explore the dashboard</p>
               </div>
               <div style={{ display:"flex", gap:20, flexWrap:"wrap", justifyContent:"center" }}>
-                <div className="demo-card" onClick={() => setDemoRole("teacher")}>
+                <div className="demo-role-card" onClick={() => setDemoRole("teacher")}>
                   <div style={{ fontSize:48, marginBottom:16 }}>👩‍🏫</div>
                   <div style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, marginBottom:8 }}>Teacher View</div>
                   <div style={{ color:"#64748b", fontSize:13, lineHeight:1.6 }}>Check-in, timetable,<br/>leave & attendance</div>
@@ -120,7 +210,7 @@ export default function Homepage() {
                     View as Teacher →
                   </div>
                 </div>
-                <div className="demo-card" onClick={() => setDemoRole("admin")}>
+                <div className="demo-role-card" onClick={() => setDemoRole("admin")}>
                   <div style={{ fontSize:48, marginBottom:16 }}>🏫</div>
                   <div style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, marginBottom:8 }}>Admin View</div>
                   <div style={{ color:"#64748b", fontSize:13, lineHeight:1.6 }}>Track staff, approve leaves,<br/>post announcements</div>
@@ -130,30 +220,23 @@ export default function Homepage() {
                 </div>
               </div>
               <button onClick={() => setShowDemo(false)} style={{ background:"none", border:"1px solid #1e293b", borderRadius:10, padding:"10px 24px", color:"#64748b", cursor:"pointer", fontSize:13 }}>
-                ✕ Close Demo
+                ✕ Close
               </button>
             </div>
           )}
-
-          {/* Dashboard preview */}
           {demoRole && (
             <div className="demo-frame">
               <div className="demo-topbar">
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                   <div style={{ width:8, height:8, borderRadius:"50%", background:"#22c55e", animation:"pulse 2s infinite" }} />
                   <span style={{ fontSize:13, fontWeight:600 }}>
-                    {demoRole==="teacher" ? "👩‍🏫 Teacher Dashboard — Demo Mode" : "🏫 Admin Dashboard — Demo Mode"}
+                    {demoRole==="teacher" ? "👩‍🏫 Teacher Dashboard — Demo" : "🏫 Admin Dashboard — Demo"}
                   </span>
-                  <span style={{ fontSize:11, color:"#64748b", background:"#1e293b", padding:"2px 8px", borderRadius:99 }}>Read-only preview</span>
+                  <span style={{ fontSize:11, color:"#64748b", background:"#1e293b", padding:"2px 8px", borderRadius:99 }}>Preview</span>
                 </div>
                 <div style={{ display:"flex", gap:10 }}>
-                  <button onClick={() => setDemoRole(null)} style={{ background:"#1e293b", border:"none", borderRadius:8, padding:"6px 14px", color:"#94a3b8", cursor:"pointer", fontSize:12 }}>
-                    ← Switch Role
-                  </button>
-                  <button onClick={() => { setShowDemo(false); setDemoRole(null); navigate("/login"); }}
-                    style={{ background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", borderRadius:8, padding:"6px 16px", color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>
-                    Login to Use →
-                  </button>
+                  <button onClick={() => setDemoRole(null)} style={{ background:"#1e293b", border:"none", borderRadius:8, padding:"6px 14px", color:"#94a3b8", cursor:"pointer", fontSize:12 }}>← Switch Role</button>
+                  <button onClick={() => { setShowDemo(false); setDemoRole(null); navigate("/login"); }} style={{ background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", borderRadius:8, padding:"6px 16px", color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>Login to Use →</button>
                   <button onClick={() => { setShowDemo(false); setDemoRole(null); }} style={{ background:"#450a0a", border:"none", borderRadius:8, padding:"6px 12px", color:"#ef4444", cursor:"pointer", fontSize:13 }}>✕</button>
                 </div>
               </div>
@@ -177,6 +260,9 @@ export default function Homepage() {
         <div style={{ display:"flex", gap:"32px", alignItems:"center" }}>
           <a href="#features" className="nav-link">Features</a>
           <a href="#stats" className="nav-link">About</a>
+          <button className="hero-btn" style={{ padding:"10px 22px", fontSize:"13px", background:"linear-gradient(135deg,#059669,#047857)", color:"#fff", borderRadius:12 }} onClick={() => setShowRegister(true)}>
+            Register School 🏫
+          </button>
           <button className="hero-btn hero-btn-primary" style={{ padding:"10px 22px", fontSize:"13px" }} onClick={() => navigate("/login")}>Login →</button>
         </div>
       </nav>
@@ -200,11 +286,11 @@ export default function Homepage() {
             GPS-verified check-ins, real-time dashboards, leave management, and announcements — all in one place for modern schools.
           </p>
           <div className="fade-up-4" style={{ display:"flex", gap:"14px", justifyContent:"center", flexWrap:"wrap" }}>
-            <button className="hero-btn hero-btn-primary" onClick={() => navigate("/login")}>Get Started Free →</button>
+            <button className="hero-btn hero-btn-green" onClick={() => setShowRegister(true)}>Register New School 🏫</button>
             <button className="hero-btn hero-btn-secondary" onClick={() => setShowDemo(true)}>Watch Demo ▶</button>
           </div>
           <p className="fade-up-4" style={{ marginTop:"32px", color:"#334155", fontSize:"12px" }}>
-            No credit card required · Works on any device · Free forever for small schools
+            Quick setup · Works on any device · Free for small schools
           </p>
         </div>
 
@@ -289,9 +375,9 @@ export default function Homepage() {
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontSize:"clamp(28px,5vw,56px)", fontWeight:800, marginBottom:"20px" }}>
             Ready to go <span className="gradient-text">paperless?</span>
           </h2>
-          <p style={{ color:"#64748b", fontSize:"16px", marginBottom:"40px" }}>Start tracking attendance the smart way today.</p>
+          <p style={{ color:"#64748b", fontSize:"16px", marginBottom:"40px" }}>Get your school set up in under 24 hours.</p>
           <div style={{ display:"flex", gap:14, justifyContent:"center", flexWrap:"wrap" }}>
-            <button className="hero-btn hero-btn-primary" style={{ fontSize:"16px", padding:"18px 48px" }} onClick={() => navigate("/login")}>Login to Dashboard →</button>
+            <button className="hero-btn hero-btn-green" style={{ fontSize:"16px", padding:"18px 48px" }} onClick={() => setShowRegister(true)}>Register Your School 🏫</button>
             <button className="hero-btn hero-btn-secondary" style={{ fontSize:"16px", padding:"18px 48px" }} onClick={() => setShowDemo(true)}>Try Demo ▶</button>
           </div>
         </div>
@@ -302,6 +388,10 @@ export default function Homepage() {
         <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
           <div style={{ width:"28px", height:"28px", borderRadius:"8px", background:"linear-gradient(135deg,#2563eb,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px" }}>✦</div>
           <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:"14px" }}>AttendTrack</span>
+        </div>
+        <div style={{ display:"flex", gap:24, alignItems:"center" }}>
+          <span style={{ fontSize:12, color:"#475569" }}>📞 +91 90755 01269</span>
+          <span style={{ fontSize:12, color:"#475569" }}>✉️ nihaswain7@gmail.com</span>
         </div>
         <p style={{ color:"#334155", fontSize:"12px" }}>Built for schools. Free forever.</p>
       </footer>
