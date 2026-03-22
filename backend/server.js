@@ -10,13 +10,9 @@ const PORT = process.env.PORT || 5000;
 // ── CORS Configuration (Production-Ready) ──
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://localhost:3001",
   "http://localhost:3002",
-  "http://localhost:3003",
-  "http://localhost:3004",
-  "http://localhost:3005",
-  "https://attendtrack.netlify.app",  // Update with your actual Netlify URL
-  /\.app\.github\.dev$/,  // Allow all Codespaces URLs
+  "https://scintillating-blancmange-455024.netlify.app", // your Netlify URL
+  /\.app\.github\.dev$/,
 ];
 
 app.use(cors({
