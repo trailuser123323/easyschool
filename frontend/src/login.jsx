@@ -1,11 +1,12 @@
+
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://easyschool-czee.onrender.com";  (window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : `https://${window.location.hostname.replace(/(-\d+)(\.app\.github\.dev)$/, "-5000$2")}`);
-
+const API_BASE_URL = "https://easyschool-czee.onrender.com";
 const API_URL = `${API_BASE_URL}/api/auth/login`;
+
+
 
 const DEMO_ACCOUNTS = [
   { label: "Admin",   email: "admin@gmail.com",    password: "1234",  initials: "A", color: "#4f46e5" },
