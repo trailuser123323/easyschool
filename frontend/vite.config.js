@@ -5,14 +5,14 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  root: path.join(__dirname, ".."),
+  root: ".",
   server: {
     proxy: {
       "/api": "http://localhost:5000"
     }
   },
   build: {
-    outDir: path.join(__dirname, "dist"),
+    outDir: "dist",
   },
   test: {
     globals: true,
