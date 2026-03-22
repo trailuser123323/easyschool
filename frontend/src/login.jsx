@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ||
-  (window.location.hostname === "localhost"
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://easyschool-czee.onrender.com";  (window.location.hostname === "localhost"
     ? "http://localhost:5000"
     : `https://${window.location.hostname.replace(/(-\d+)(\.app\.github\.dev)$/, "-5000$2")}`);
 
