@@ -9,17 +9,18 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS — works for both local and Codespaces
+// ✅ CORS
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:3002",
-  /\.app\.github\.dev$/,   // allows ALL Codespaces preview URLs
+  "https://trecords.netlify.app",  // ✅ Netlify frontend
+  /\.app\.github\.dev$/,           // ✅ Codespaces preview URLs
+  /\.netlify\.app$/,               // ✅ Any future Netlify deployments
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (Postman, curl, server-to-server)
     if (!origin) return callback(null, true);
 
     const allowed = allowedOrigins.some(o =>
@@ -31,6 +32,8 @@ app.use(cors({
       : callback(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
 app.use(express.json());
@@ -45,7 +48,7 @@ app.use("/api/auth", authRoutes);
 
 // ✅ Health check
 app.get("/", (req, res) => {
-  res.send("Server is running 🚀");
+  res.json({ message: "Backend is running!", status: "connected" });
 });
 
 // ✅ 404
@@ -57,4 +60,21 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT} 🚀`);
+});at > backend/routes/auth.js << 'EOF'
+import express from "express";
+const router = express.Router();
+
+const users = [
+  { id: 1, email: "admin@gmail.com", password: "1234", role: "admin", name: "Admin" },
+  { id: 2, email: "teacher1@gmail.com", password: "12345", role: "teacher", name: "Teacher One" },
+];
+
+router.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  const user = users.find(u => u.email === email && u.password === password);
+  if (!user) return res.status(401).json({ message: "Invalid email or password." });
+  const { password: _, ...userData } = user;
+  res.json({ token: "demo-token-" + user.id, user: userData });
 });
+
+export default router;
