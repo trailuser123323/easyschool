@@ -6,7 +6,7 @@ const DEMO_ACCOUNTS = [
   { label:"Teacher", email:"teacher1@gmail.com", password:"12345", initials:"T", color:"#059669", role:"teacher", name:"Teacher One" },
 ];
 
-export default function Login() {
+export default function Login({ onLogin }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +36,7 @@ export default function Login() {
 
     localStorage.setItem("token", "demo-token");
     localStorage.setItem("user", JSON.stringify(normalised));
+    onLogin(normalised);
 
     if (user.role === "admin") navigate("/admin");
     else navigate("/teacher");
@@ -106,7 +107,7 @@ export default function Login() {
               </div>
             </div>
             {error && <div style={s.errorBox}><span>⚠️</span><span>{error}</span></div>}
-            <button type="submit" disabled={loading} style={{ ...s.submitBtn, opacity:loading?.8:1 }}>
+            <button type="submit" disabled={loading} style={{ ...s.submitBtn, opacity:loading?0.8:1 }}>
               {loading ? <><span style={s.spinner}/> Signing in…</> : <>Sign In →</>}
             </button>
           </form>

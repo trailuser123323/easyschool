@@ -8,23 +8,12 @@ import "./App.css";
 
 function AppRoutes() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Load user from localStorage on app mount
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error("Failed to parse user data:", err);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      }
-    }
-    setLoading(false);
-  }, []);
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -33,16 +22,16 @@ function AppRoutes() {
     navigate("/login");
   };
 
-  if (loading) {
-    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontSize: 18 }}>Loading...</div>;
-  }
+  const handleLogin = (userData) => {
+    setUser(userData);
+  };
 
   return (
     <Routes>
-      <Route path="/"      element={<Homepage />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/"        element={<Homepage />} />
+      <Route path="/login"   element={<Login onLogin={handleLogin} />} />
       <Route path="/teacher" element={user ? <TeacherDashboard teacher={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-      <Route path="/admin" element={user ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+      <Route path="/admin"   element={user ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
     </Routes>
   );
 }
