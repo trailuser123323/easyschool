@@ -1,248 +1,140 @@
-
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = "https://easyschool-czee.onrender.com";
-const API_URL = `${API_BASE_URL}/api/auth/login`;
-
-
-
 const DEMO_ACCOUNTS = [
-  { label: "Admin",   email: "admin@gmail.com",    password: "1234",  initials: "A", color: "#4f46e5" },
-  { label: "Teacher", email: "teacher1@gmail.com", password: "12345", initials: "T", color: "#059669" },
+  { label:"Admin",   email:"admin@gmail.com",    password:"1234",  initials:"A", color:"#4f46e5", role:"admin",   name:"Admin" },
+  { label:"Teacher", email:"teacher1@gmail.com", password:"12345", initials:"T", color:"#059669", role:"teacher", name:"Teacher One" },
 ];
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email,    setEmail]    = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [error,    setError]    = useState("");
-  const [loading,  setLoading]  = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    try {
-      const res = await fetch(API_URL, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email: email.trim().toLowerCase(), password }),
-      });
+    const user = DEMO_ACCOUNTS.find(
+      u => u.email === email.trim().toLowerCase() && u.password === password
+    );
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.message || data?.error || "Invalid email or password.");
-        setLoading(false);
-        return;
-      }
-
-      // ── Normalise user from any backend shape ──────────────
-      // Handles: { token, user } | { token, data } | flat object
-      const user  = data?.user || data?.data || data;
-      const token = data?.token || user?.token || "";
-      const role  = (user?.role || user?.userType || "teacher").toLowerCase();
-      const name  = user?.name || user?.fullName || email.split("@")[0];
-      const parts = name.trim().split(" ");
-      const initials = ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase()
-                       || role[0].toUpperCase();
-
-      const normalised = {
-        role,
-        name,
-        initials,
-        email:   user?.email  || email,
-        subject: user?.subject || "–",
-        class:   user?.className || user?.class || "–",
-        token,
-      };
-
-      // ── Persist to localStorage (App.jsx reads this on mount) ──
-      localStorage.setItem("token", token);
-      localStorage.setItem("user",  JSON.stringify(normalised));
-
-      // ── Route by role ──────────────────────────────────────
-      if (role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/teacher");
-      }
-
-    } catch (err) {
-      setError("Cannot connect to server. Make sure the backend is running on port 5000.");
+    if (!user) {
+      setError("Invalid email or password.");
       setLoading(false);
+      return;
     }
+
+    const normalised = {
+      role: user.role, name: user.name, initials: user.initials,
+      email: user.email, subject: "–", class: "–", token: "demo-token",
+    };
+
+    localStorage.setItem("token", "demo-token");
+    localStorage.setItem("user", JSON.stringify(normalised));
+
+    if (user.role === "admin") navigate("/admin");
+    else navigate("/teacher");
+    setLoading(false);
   }
 
-  function fillDemo(acc) {
-    setEmail(acc.email);
-    setPassword(acc.password);
-    setError("");
-  }
+  function fillDemo(acc) { setEmail(acc.email); setPassword(acc.password); setError(""); }
 
   return (
     <div style={s.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Fraunces:wght@600;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'DM Sans', sans-serif; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes spin   { to { transform: rotate(360deg); } }
-        input::placeholder { color: rgba(255,255,255,.2); }
-        input:focus {
-          outline: none;
-          border-color: #4f46e5 !important;
-          background: rgba(79,70,229,.08) !important;
-          box-shadow: 0 0 0 3px rgba(79,70,229,.15);
-        }
-        .demo-row:hover { background: rgba(255,255,255,.07) !important; cursor: pointer; }
+        @keyframes spin   { to{transform:rotate(360deg)} }
+        input::placeholder { color:rgba(255,255,255,.2); }
+        input:focus { outline:none; border-color:#4f46e5 !important; background:rgba(79,70,229,.08) !important; box-shadow:0 0 0 3px rgba(79,70,229,.15); }
+        .demo-row:hover { background:rgba(255,255,255,.07) !important; cursor:pointer; }
       `}</style>
 
-      {/* ── LEFT PANEL ── */}
       <div style={s.left}>
         <div style={s.leftInner}>
           <div style={s.brand}>
             <div style={s.brandIcon}>✦</div>
             <div style={s.brandName}>AttendTrack</div>
           </div>
-
-          <div style={s.heroText}>
-            Smart Attendance<br />
-            <span style={s.heroAccent}>For Smart Schools</span>
-          </div>
-
-          <p style={s.heroSub}>
-            One login for everyone. Admins manage, teachers mark
-            attendance — all in one seamless platform.
-          </p>
-
+          <div style={s.heroText}>Smart Attendance<br /><span style={s.heroAccent}>For Smart Schools</span></div>
+          <p style={s.heroSub}>One login for everyone. Admins manage, teachers mark attendance — all in one seamless platform.</p>
           <div style={s.features}>
-            {[
-              ["📍","GPS-verified check-in"],
-              ["📊","Real-time dashboards"],
-              ["📝","Digital leave management"],
-              ["📢","Instant announcements"],
-            ].map(([icon,text]) => (
+            {[["📍","GPS-verified check-in"],["📊","Real-time dashboards"],["📝","Digital leave management"],["📢","Instant announcements"]].map(([icon,text])=>(
               <div key={text} style={s.featureRow}>
                 <div style={s.featureIcon}>{icon}</div>
                 <span style={s.featureText}>{text}</span>
               </div>
             ))}
           </div>
-
           <div style={s.serverStatus}>
-            <div style={s.statusDot}></div>
-            <span style={s.statusText}>Server running · All systems operational</span>
+            <div style={s.statusDot}/>
+            <span style={s.statusText}>All systems operational</span>
           </div>
         </div>
       </div>
 
-      {/* ── RIGHT PANEL ── */}
       <div style={s.right}>
         <div style={s.card}>
-
           <div style={s.cardBrand}>
             <div style={s.cardBrandIcon}>✦</div>
             <span style={s.cardBrandName}>AttendTrack</span>
           </div>
-
           <div style={s.cardTop}>
             <div style={s.cardTitle}>Welcome back</div>
-            <div style={s.cardSub}>
-              Sign in as Admin or Teacher — same login, smart routing.
-            </div>
+            <div style={s.cardSub}>Sign in as Admin or Teacher — same login, smart routing.</div>
           </div>
-
           <form onSubmit={handleSubmit} style={{ display:"flex", flexDirection:"column", gap:16 }}>
-            {/* Email */}
             <div style={s.fgl}>
               <label style={s.label}>Email Address</label>
               <div style={s.inputWrap}>
-                <input
-                  type="email"
-                  placeholder="you@school.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  style={s.input}
-                />
+                <input type="email" placeholder="you@school.com" value={email} onChange={e=>setEmail(e.target.value)} required style={s.input}/>
                 <span style={s.inputSuffix}>✉️</span>
               </div>
             </div>
-
-            {/* Password */}
             <div style={s.fgl}>
               <label style={s.label}>Password</label>
               <div style={s.inputWrap}>
-                <input
-                  type={showPass ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  style={s.input}
-                />
-                <button type="button" style={s.eyeBtn} onClick={() => setShowPass(v => !v)}>
-                  {showPass ? "🙈" : "👁️"}
-                </button>
+                <input type={showPass?"text":"password"} placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} required style={s.input}/>
+                <button type="button" style={s.eyeBtn} onClick={()=>setShowPass(v=>!v)}>{showPass?"🙈":"👁️"}</button>
               </div>
             </div>
-
-            {/* Error */}
-            {error && (
-              <div style={s.errorBox}>
-                <span>⚠️</span><span>{error}</span>
-              </div>
-            )}
-
-            {/* Submit */}
-            <button type="submit" disabled={loading}
-              style={{ ...s.submitBtn, opacity: loading ? .8 : 1 }}>
-              {loading
-                ? <><span style={s.spinner}/> Signing in…</>
-                : <>Sign In →</>}
+            {error && <div style={s.errorBox}><span>⚠️</span><span>{error}</span></div>}
+            <button type="submit" disabled={loading} style={{ ...s.submitBtn, opacity:loading?.8:1 }}>
+              {loading ? <><span style={s.spinner}/> Signing in…</> : <>Sign In →</>}
             </button>
           </form>
-
-          {/* Demo accounts */}
           <div style={s.demoBox}>
             <div style={s.demoTitle}>Demo Accounts</div>
-            {DEMO_ACCOUNTS.map(acc => (
-              <div key={acc.label} className="demo-row"
-                style={s.demoRow}
-                onClick={() => fillDemo(acc)}>
-                <div style={{ ...s.demoAvatar, background: acc.color }}>{acc.initials}</div>
-                <div style={{ flex:1 }}>
-                  <div style={s.demoName}>{acc.label}</div>
-                </div>
+            {DEMO_ACCOUNTS.map(acc=>(
+              <div key={acc.label} className="demo-row" style={s.demoRow} onClick={()=>fillDemo(acc)}>
+                <div style={{ ...s.demoAvatar, background:acc.color }}>{acc.initials}</div>
+                <div style={{ flex:1 }}><div style={s.demoName}>{acc.label}</div></div>
                 <div style={s.demoEmail}>{acc.email}</div>
               </div>
             ))}
             <div style={s.demoHint}>↑ Click a row to autofill credentials</div>
           </div>
-
         </div>
       </div>
     </div>
   );
 }
 
-// ── STYLES ──────────────────────────────────────────────────
 const s = {
-  page:         { display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"#0d0d14" },
-
-  // Left
+  page:         { display:"flex", minHeight:"100vh", fontFamily:"'DM Sans',sans-serif", background:"#0d0d14" },
   left:         { flex:"0 0 52%", background:"#0d0d14", display:"flex", alignItems:"center", justifyContent:"center", padding:"56px 64px", overflow:"hidden" },
   leftInner:    { animation:"fadeUp .6s ease both", maxWidth:480 },
   brand:        { display:"flex", alignItems:"center", gap:10, marginBottom:44 },
   brandIcon:    { width:40, height:40, background:"#4f46e5", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:"#fff", fontWeight:700 },
-  brandName:    { fontFamily:"'Fraunces', serif", fontSize:20, fontWeight:700, color:"#fff" },
-  heroText:     { fontFamily:"'Fraunces', serif", fontSize:52, fontWeight:700, color:"#fff", lineHeight:1.05, marginBottom:20 },
+  brandName:    { fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:700, color:"#fff" },
+  heroText:     { fontFamily:"'Fraunces',serif", fontSize:52, fontWeight:700, color:"#fff", lineHeight:1.05, marginBottom:20 },
   heroAccent:   { background:"linear-gradient(90deg,#818cf8,#ec4899)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" },
   heroSub:      { fontSize:15, color:"rgba(255,255,255,.45)", lineHeight:1.7, marginBottom:44 },
   features:     { display:"flex", flexDirection:"column", gap:12, marginBottom:44 },
@@ -252,29 +144,23 @@ const s = {
   serverStatus: { display:"flex", alignItems:"center", gap:8 },
   statusDot:    { width:7, height:7, borderRadius:"50%", background:"#22c55e", animation:"pulse 2s infinite" },
   statusText:   { fontSize:12, color:"rgba(255,255,255,.35)" },
-
-  // Right
   right:        { flex:1, background:"#13131f", display:"flex", alignItems:"center", justifyContent:"center", padding:40 },
   card:         { width:"100%", maxWidth:420, animation:"fadeUp .5s .1s ease both", opacity:0 },
   cardBrand:    { display:"flex", alignItems:"center", gap:8, marginBottom:32 },
   cardBrandIcon:{ width:32, height:32, background:"#4f46e5", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"#fff", fontWeight:700 },
-  cardBrandName:{ fontFamily:"'Fraunces', serif", fontSize:16, fontWeight:700, color:"#fff" },
+  cardBrandName:{ fontFamily:"'Fraunces',serif", fontSize:16, fontWeight:700, color:"#fff" },
   cardTop:      { marginBottom:28 },
-  cardTitle:    { fontFamily:"'Fraunces', serif", fontSize:32, fontWeight:700, color:"#fff", marginBottom:8 },
+  cardTitle:    { fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, color:"#fff", marginBottom:8 },
   cardSub:      { fontSize:13, color:"rgba(255,255,255,.35)", lineHeight:1.6 },
-
   fgl:          { display:"flex", flexDirection:"column", gap:7 },
   label:        { fontSize:11, fontWeight:600, color:"rgba(255,255,255,.35)", textTransform:"uppercase", letterSpacing:".08em" },
   inputWrap:    { position:"relative", display:"flex", alignItems:"center" },
-  input:        { width:"100%", border:"1px solid rgba(255,255,255,.1)", borderRadius:10, padding:"13px 44px 13px 16px", fontSize:14, color:"#fff", background:"rgba(255,255,255,.05)", transition:"all .2s", fontFamily:"'DM Sans', sans-serif" },
+  input:        { width:"100%", border:"1px solid rgba(255,255,255,.1)", borderRadius:10, padding:"13px 44px 13px 16px", fontSize:14, color:"#fff", background:"rgba(255,255,255,.05)", transition:"all .2s", fontFamily:"'DM Sans',sans-serif" },
   inputSuffix:  { position:"absolute", right:14, fontSize:14, pointerEvents:"none", opacity:.4 },
   eyeBtn:       { position:"absolute", right:12, background:"none", border:"none", cursor:"pointer", fontSize:14, padding:4, opacity:.5 },
-
   errorBox:     { background:"rgba(185,28,28,.25)", border:"1px solid rgba(220,38,38,.4)", borderRadius:10, padding:"11px 14px", fontSize:13, color:"#fca5a5", display:"flex", alignItems:"center", gap:8 },
-
-  submitBtn:    { background:"linear-gradient(135deg,#4f46e5,#7c3aed)", color:"#fff", border:"none", borderRadius:12, padding:"15px", fontSize:15, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'DM Sans', sans-serif", transition:"opacity .2s", boxShadow:"0 4px 24px rgba(79,70,229,.4)" },
+  submitBtn:    { background:"linear-gradient(135deg,#4f46e5,#7c3aed)", color:"#fff", border:"none", borderRadius:12, padding:"15px", fontSize:15, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'DM Sans',sans-serif", transition:"opacity .2s", boxShadow:"0 4px 24px rgba(79,70,229,.4)" },
   spinner:      { width:16, height:16, border:"2px solid rgba(255,255,255,.3)", borderTopColor:"#fff", borderRadius:"50%", display:"inline-block", animation:"spin .7s linear infinite" },
-
   demoBox:      { marginTop:28, background:"rgba(255,255,255,.04)", borderRadius:14, padding:16, border:"1px solid rgba(255,255,255,.07)" },
   demoTitle:    { fontSize:10, fontWeight:600, color:"rgba(255,255,255,.25)", textTransform:"uppercase", letterSpacing:".1em", marginBottom:12 },
   demoRow:      { display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, marginBottom:4, transition:"background .15s" },
