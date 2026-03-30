@@ -39,8 +39,8 @@ export default function TeacherTracking({ teachers }) {
                 type="button"
                 className="teacher-avatar teacher-avatar-button"
                 style={{ '--teacher-color': teacher.color }}
-                onClick={() => teacher.loginPhoto && setSelectedTeacher(teacher)}
-                title={teacher.loginPhoto ? `View ${teacher.name} check-in photo` : 'No check-in photo available'}
+                onClick={() => (teacher.loginPhoto || teacher.checkoutPhoto) && setSelectedTeacher(teacher)}
+                title={teacher.loginPhoto || teacher.checkoutPhoto ? `View ${teacher.name} attendance photos` : 'No attendance photo available'}
               >
                 {teacher.initials}
               </button>
@@ -86,9 +86,9 @@ export default function TeacherTracking({ teachers }) {
               type="button"
               className="teacher-photo-button"
               onClick={() => setSelectedTeacher(teacher)}
-              disabled={!teacher.loginPhoto}
+              disabled={!teacher.loginPhoto && !teacher.checkoutPhoto}
             >
-              {teacher.loginPhoto ? 'View check-in photo' : 'No check-in photo'}
+              {teacher.loginPhoto || teacher.checkoutPhoto ? 'View attendance photos' : 'No attendance photos'}
             </button>
           </div>
         ))}
@@ -101,7 +101,7 @@ export default function TeacherTracking({ teachers }) {
               <div>
                 <div className="teacher-photo-title">{selectedTeacher.name}</div>
                 <div className="teacher-photo-subtitle">
-                  {selectedTeacher.subject} • {selectedTeacher.class} • {selectedTeacher.checkin}
+                  {selectedTeacher.subject} • {selectedTeacher.class}
                 </div>
               </div>
               <button
@@ -112,11 +112,32 @@ export default function TeacherTracking({ teachers }) {
                 ×
               </button>
             </div>
-            <img
-              className="teacher-photo-image"
-              src={selectedTeacher.loginPhoto}
-              alt={`${selectedTeacher.name} check-in`}
-            />
+            <div className="teacher-photo-grid">
+              <div className="teacher-photo-panel">
+                <div className="teacher-photo-label">Check-in {selectedTeacher.checkin ? `• ${selectedTeacher.checkin}` : ''}</div>
+                {selectedTeacher.loginPhoto ? (
+                  <img
+                    className="teacher-photo-image"
+                    src={selectedTeacher.loginPhoto}
+                    alt={`${selectedTeacher.name} check-in`}
+                  />
+                ) : (
+                  <div className="teacher-photo-empty">No check-in photo</div>
+                )}
+              </div>
+              <div className="teacher-photo-panel">
+                <div className="teacher-photo-label">Check-out {selectedTeacher.checkout && selectedTeacher.checkout !== '–' ? `• ${selectedTeacher.checkout}` : ''}</div>
+                {selectedTeacher.checkoutPhoto ? (
+                  <img
+                    className="teacher-photo-image"
+                    src={selectedTeacher.checkoutPhoto}
+                    alt={`${selectedTeacher.name} check-out`}
+                  />
+                ) : (
+                  <div className="teacher-photo-empty">No check-out photo</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
