@@ -1,24 +1,51 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import './AdminDashboard.css';
 import AdminSidebar from './components/AdminSidebar';
 import TeacherTracking from './components/TeacherTracking';
 import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
+import { apiUrl } from './api';
+
+const FALLBACK_TEACHERS = [
+  { id:1, name:'Priya Ramesh',   initials:'PR', subject:'Science',  class:'9A', status:'present', checkin:'8:47 AM', onDuty:true,  absent:2, leave:2, rate:'91%', color:'#4f46e5' },
+  { id:2, name:'Amit Sharma',    initials:'AS', subject:'Math',     class:'8B', status:'present', checkin:'8:52 AM', onDuty:true,  absent:1, leave:1, rate:'95%', color:'#0891b2' },
+  { id:3, name:'Rekha Nair',     initials:'RN', subject:'English',  class:'10A',status:'leave',   checkin:'–',       onDuty:false, absent:3, leave:4, rate:'85%', color:'#d97706' },
+  { id:4, name:'Suresh Pillai',  initials:'SP', subject:'History',  class:'7C', status:'absent',  checkin:'–',       onDuty:false, absent:4, leave:1, rate:'80%', color:'#dc2626' },
+  { id:5, name:'Meera Joshi',    initials:'MJ', subject:'Physics',  class:'11B',status:'present', checkin:'8:39 AM', onDuty:true,  absent:0, leave:2, rate:'98%', color:'#059669' },
+  { id:6, name:'Kiran Desai',    initials:'KD', subject:'Chemistry',class:'12A',status:'present', checkin:'8:55 AM', onDuty:false, absent:1, leave:3, rate:'93%', color:'#7c3aed' },
+  { id:7, name:'Pooja Kulkarni', initials:'PK', subject:'Biology',  class:'9B', status:'absent',  checkin:'–',       onDuty:false, absent:5, leave:2, rate:'78%', color:'#be185d' },
+  { id:8, name:'Raj Patil',      initials:'RP', subject:'Geo',      class:'8A', status:'present', checkin:'8:44 AM', onDuty:true,  absent:2, leave:1, rate:'90%', color:'#0891b2' },
+];
+
+function formatCheckin(lastLogin, fallback = '–') {
+  if (!lastLogin) return fallback;
+  return new Date(lastLogin).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function normaliseTeacher(teacher, index) {
+  return {
+    id: teacher.id ?? teacher._id ?? index + 1,
+    name: teacher.name,
+    initials: teacher.initials || 'T',
+    subject: teacher.subject || 'General',
+    class: teacher.class || teacher.className || '–',
+    status: teacher.status || (teacher.lastLogin ? 'present' : 'absent'),
+    checkin: formatCheckin(teacher.lastLogin, teacher.checkin || '–'),
+    onDuty: Boolean(teacher.onDuty),
+    absent: teacher.absent ?? 0,
+    leave: teacher.leave ?? 0,
+    rate: teacher.rate || '0%',
+    color: teacher.color || '#4f46e5',
+    lastLogin: teacher.lastLogin || null,
+  };
+}
 
 export default function AdminDashboard({ user, onLogout }) {
-  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('tracking');
-  const [teachers, setTeachers] = useState([
-    { id:1, name:'Priya Ramesh',   initials:'PR', subject:'Science',  class:'9A', status:'present', checkin:'8:47 AM', onDuty:true,  absent:2, leave:2, rate:'91%', color:'#4f46e5' },
-    { id:2, name:'Amit Sharma',    initials:'AS', subject:'Math',     class:'8B', status:'present', checkin:'8:52 AM', onDuty:true,  absent:1, leave:1, rate:'95%', color:'#0891b2' },
-    { id:3, name:'Rekha Nair',     initials:'RN', subject:'English',  class:'10A',status:'leave',   checkin:'–',       onDuty:false, absent:3, leave:4, rate:'85%', color:'#d97706' },
-    { id:4, name:'Suresh Pillai',  initials:'SP', subject:'History',  class:'7C', status:'absent',  checkin:'–',       onDuty:false, absent:4, leave:1, rate:'80%', color:'#dc2626' },
-    { id:5, name:'Meera Joshi',    initials:'MJ', subject:'Physics',  class:'11B',status:'present', checkin:'8:39 AM', onDuty:true,  absent:0, leave:2, rate:'98%', color:'#059669' },
-    { id:6, name:'Kiran Desai',    initials:'KD', subject:'Chemistry',class:'12A',status:'present', checkin:'8:55 AM', onDuty:false, absent:1, leave:3, rate:'93%', color:'#7c3aed' },
-    { id:7, name:'Pooja Kulkarni', initials:'PK', subject:'Biology',  class:'9B', status:'absent',  checkin:'–',       onDuty:false, absent:5, leave:2, rate:'78%', color:'#be185d' },
-    { id:8, name:'Raj Patil',      initials:'RP', subject:'Geo',      class:'8A', status:'present', checkin:'8:44 AM', onDuty:true,  absent:2, leave:1, rate:'90%', color:'#0891b2' },
-  ]);
+  const [teachers, setTeachers] = useState(FALLBACK_TEACHERS);
 
   const [announcements, setAnnouncements] = useState([
     { id:1, title:'Annual Sports Day Prep',    body:'All PE staff to coordinate with class teachers for student participation lists.', time:'Today, 9:00 AM', icon:'🏆', type:'info' },
@@ -35,6 +62,31 @@ export default function AdminDashboard({ user, onLogout }) {
   ]);
 
   const [toast, setToast] = useState({ show: false, msg: '' });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(apiUrl('/api/auth/teachers'))
+      .then(async (response) => {
+        const data = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(data.message || 'Unable to load teachers.');
+        }
+
+        if (!cancelled && Array.isArray(data) && data.length > 0) {
+          setTeachers(data.map(normaliseTeacher));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTeachers(FALLBACK_TEACHERS);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const showToast = (msg) => {
     setToast({ show: true, msg });

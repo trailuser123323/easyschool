@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "./api";
 
 const DEMO_ACCOUNTS = [
   { label:"Admin",   email:"admin@gmail.com",    password:"1234",  initials:"A", color:"#4f46e5", role:"admin",   name:"Admin" },
@@ -18,29 +19,39 @@ export default function Login({ onLogin }) {
     e.preventDefault();
     setError("");
     setLoading(true);
+    fetch(apiUrl("/api/auth/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        password,
+      }),
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
 
-    const user = DEMO_ACCOUNTS.find(
-      u => u.email === email.trim().toLowerCase() && u.password === password
-    );
+        if (!response.ok) {
+          throw new Error(data.message || "Invalid email or password.");
+        }
 
-    if (!user) {
-      setError("Invalid email or password.");
-      setLoading(false);
-      return;
-    }
+        const normalised = {
+          ...data.user,
+          token: data.token,
+        };
 
-    const normalised = {
-      role: user.role, name: user.name, initials: user.initials,
-      email: user.email, subject: "–", class: "–", token: "demo-token",
-    };
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(normalised));
+        onLogin(normalised);
 
-    localStorage.setItem("token", "demo-token");
-    localStorage.setItem("user", JSON.stringify(normalised));
-    onLogin(normalised);
-
-    if (user.role === "admin") navigate("/admin");
-    else navigate("/teacher");
-    setLoading(false);
+        if (normalised.role === "admin") navigate("/admin");
+        else navigate("/teacher");
+      })
+      .catch((err) => {
+        setError(err.message || "Unable to sign in.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }
 
   function fillDemo(acc) { setEmail(acc.email); setPassword(acc.password); setError(""); }
