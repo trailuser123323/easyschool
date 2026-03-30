@@ -4,7 +4,7 @@ import { apiUrl } from "./api";
 
 const DEMO_ACCOUNTS = [
   { label:"Admin",   email:"admin@gmail.com",    password:"1234",  initials:"A", color:"#4f46e5", role:"admin",   name:"Admin" },
-  { label:"Teacher", email:"teacher1@gmail.com", password:"12345", initials:"T", color:"#059669", role:"teacher", name:"Teacher One" },
+  { label:"Teacher", email:"teacher1@gmail.com", password:"12345", initials:"PR", color:"#4f46e5", role:"teacher", name:"Priya Ramesh" },
 ];
 
 export default function Login({ onLogin }) {
