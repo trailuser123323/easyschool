@@ -1,0 +1,28 @@
+import mongoose from "mongoose";
+
+const teacherSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true },
+    role: { type: String, default: "teacher" },
+    subject: { type: String, default: "" },
+    class: { type: String, default: "" },
+    initials: { type: String, default: "T" },
+    color: { type: String, default: "#4f46e5" },
+    status: { type: String, default: "absent" },
+    checkin: { type: String, default: "–" },
+    checkout: { type: String, default: "–" },
+    onDuty: { type: Boolean, default: false },
+    absent: { type: Number, default: 0 },
+    leave: { type: Number, default: 0 },
+    rate: { type: String, default: "0%" },
+    lastLogin: { type: Date, default: null },
+    lastCheckout: { type: Date, default: null },
+    loginPhoto: { type: String, default: "" },
+    checkoutPhoto: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.models.Teacher || mongoose.model("Teacher", teacherSchema);
