@@ -27,6 +27,43 @@ function fmtDate(d) {
   return dy[d.getDay()] + ', ' + d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear();
 }
 
+function dataUrlToFile(dataUrl, filename) {
+  const [meta, content] = dataUrl.split(',');
+  const mimeMatch = meta?.match(/data:(.*?);base64/);
+  const mimeType = mimeMatch?.[1] || 'image/jpeg';
+  const binary = atob(content || '');
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new File([bytes], filename, { type: mimeType });
+}
+
+async function uploadAttendancePhoto(photo, action) {
+  if (!photo) return '';
+
+  if (!photo.startsWith('data:')) {
+    return photo;
+  }
+
+  const formData = new FormData();
+  formData.append('photo', dataUrlToFile(photo, `${action}-${Date.now()}.jpg`));
+
+  const response = await fetch(apiUrl('/api/auth/teachers/upload'), {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Unable to upload photo.');
+  }
+
+  return data.photoUrl || '';
+}
+
 // ─── SIDEBAR ───────────────────────────────────────────────
 function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
   const navItems = [
@@ -299,6 +336,7 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
   const [checkoutPhoto, setCheckoutPhoto] = useState(teacher?.checkoutPhoto || '');
   const [onDuty, setOnDuty] = useState(Boolean(teacher?.onDuty));
   const [modal, setModal] = useState(null);
+  const [savingAction, setSavingAction] = useState('');
 
   useEffect(() => {
     setCheckinTime(teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : null);
@@ -331,8 +369,10 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
           localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...data }));
         }
       }
+
+      return data;
     } catch (error) {
-      showToast('⚠️', error.message || 'Unable to save attendance');
+      throw error;
     }
   }
 
@@ -369,28 +409,48 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
       </div>
       {modal && (
         <CameraModal action={modal} onClose={() => setModal(null)} initialPhoto={modal === 'checkin' ? checkinPhoto : checkoutPhoto}
-          onConfirm={({ time, photo }) => {
-            if (modal === 'checkin') {
-              setCheckinTime(time);
-              setCheckinPhoto(photo);
-              persistAttendance({
-                checkin: time,
-                lastLogin: new Date().toISOString(),
-                loginPhoto: photo,
-                status: 'present',
-              });
-            } else {
-              setCheckoutTime(time);
-              setCheckoutPhoto(photo);
-              persistAttendance({
-                checkout: time,
-                lastCheckout: new Date().toISOString(),
-                checkoutPhoto: photo,
-              });
+          onConfirm={async ({ time, photo }) => {
+            const currentAction = modal;
+            const updateTime = currentAction === 'checkin' ? setCheckinTime : setCheckoutTime;
+            const updatePhoto = currentAction === 'checkin' ? setCheckinPhoto : setCheckoutPhoto;
+            const previousTime = currentAction === 'checkin' ? checkinTime : checkoutTime;
+            const previousPhoto = currentAction === 'checkin' ? checkinPhoto : checkoutPhoto;
+
+            updateTime(time);
+            updatePhoto(photo);
+            setSavingAction(currentAction);
+
+            try {
+              const uploadedPhotoUrl = await uploadAttendancePhoto(photo, currentAction);
+
+              if (currentAction === 'checkin') {
+                setCheckinPhoto(uploadedPhotoUrl);
+                await persistAttendance({
+                  checkin: time,
+                  lastLogin: new Date().toISOString(),
+                  loginPhoto: uploadedPhotoUrl,
+                  status: 'present',
+                });
+              } else {
+                setCheckoutPhoto(uploadedPhotoUrl);
+                await persistAttendance({
+                  checkout: time,
+                  lastCheckout: new Date().toISOString(),
+                  checkoutPhoto: uploadedPhotoUrl,
+                });
+              }
+
+              showToast(currentAction === 'checkin' ? '📍' : '👋', (currentAction === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + time);
+            } catch (error) {
+              updateTime(previousTime);
+              updatePhoto(previousPhoto);
+              showToast('⚠️', error.message || 'Unable to save attendance');
+            } finally {
+              setSavingAction('');
             }
-            showToast(modal === 'checkin' ? '📍' : '👋', (modal === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + time);
           }} />
       )}
+      {savingAction && <div style={styles.savingBanner}>Uploading {savingAction} photo...</div>}
     </div>
   );
 }
@@ -737,6 +797,7 @@ const styles = {
   dutyBtnOff: { background: '#4f46e5', color: '#fff' },
   dutyBtnOn: { background: 'rgba(5,150,105,.12)', color: '#059669', border: '1.5px solid #059669' },
   dutyBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(5,150,105,.12)', color: '#059669', borderRadius: 20, padding: '4px 10px', fontSize: 12, fontWeight: 500 },
+  savingBanner: { margin: '0 22px 20px', padding: '10px 12px', borderRadius: 10, background: 'rgba(79,70,229,.08)', color: '#4338ca', fontSize: 12, fontWeight: 600, textAlign: 'center' },
   locationRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e4e2f0' },
   locTime: { fontSize: 12, color: '#6b6b8a', width: 60, flexShrink: 0 },
   locBadge: { fontSize: 12, padding: '3px 10px', borderRadius: 20, fontWeight: 500 },

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function TeacherTracking({ teachers }) {
+export default function TeacherTracking({ teachers, lastUpdated }) {
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const presentCount = teachers.filter(t => t.status === 'present').length;
   const absentCount = teachers.filter(t => t.status === 'absent').length;
@@ -12,7 +12,7 @@ export default function TeacherTracking({ teachers }) {
         <div>
           <h1>📍 Real-Time Teacher Tracking</h1>
           <p style={{ color: '#666', fontSize: '14px', marginTop: '4px' }}>
-            Last updated: {new Date().toLocaleTimeString()}
+            Last updated: {lastUpdated || 'Waiting for sync...'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>

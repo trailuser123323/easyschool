@@ -50,29 +50,40 @@ export default function AdminDashboard({ user, onLogout }) {
   ]);
 
   const [toast, setToast] = useState({ show: false, msg: '' });
+  const [lastUpdated, setLastUpdated] = useState('');
 
   useEffect(() => {
     let cancelled = false;
 
-    fetch(apiUrl('/api/auth/teachers'))
-      .then(async (response) => {
+    async function loadTeachers() {
+      try {
+        const response = await fetch(apiUrl('/api/auth/teachers'));
         const data = await response.json().catch(() => []);
         if (!response.ok) {
           throw new Error(data.message || 'Unable to load teachers.');
         }
 
-        if (!cancelled && Array.isArray(data) && data.length > 0) {
-          setTeachers(data.map(normaliseTeacher));
+        if (!cancelled) {
+          setTeachers(Array.isArray(data) ? data.map(normaliseTeacher) : []);
+          setLastUpdated(new Date().toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+          }));
         }
-      })
-      .catch(() => {
+      } catch (_error) {
         if (!cancelled) {
           setTeachers([]);
         }
-      });
+      }
+    }
+
+    loadTeachers();
+    const intervalId = window.setInterval(loadTeachers, 15000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -112,7 +123,7 @@ export default function AdminDashboard({ user, onLogout }) {
     <div className="admin-shell">
       <AdminSidebar activeSection={activeSection} onShowSection={setActiveSection} user={user} onLogout={onLogout} />
       <div className="admin-content-wrapper">
-        {activeSection === 'tracking' && <TeacherTracking teachers={teachers} />}
+        {activeSection === 'tracking' && <TeacherTracking teachers={teachers} lastUpdated={lastUpdated} />}
         {activeSection === 'notices' && <NoticeBoard announcements={announcements} onAddAnnouncement={handleAddAnnouncement} />}
         {activeSection === 'leaves' && <LeaveRequests requests={leaveRequests} onApprove={handleApproveLeave} onReject={handleRejectLeave} />}
       </div>
