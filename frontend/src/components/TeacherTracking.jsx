@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function TeacherTracking({ teachers }) {
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
   const presentCount = teachers.filter(t => t.status === 'present').length;
   const absentCount = teachers.filter(t => t.status === 'absent').length;
   const leaveCount = teachers.filter(t => t.status === 'leave').length;
@@ -34,9 +35,15 @@ export default function TeacherTracking({ teachers }) {
         {teachers.map(teacher => (
           <div key={teacher.id} className="teacher-card">
             <div className="teacher-header">
-              <div className="teacher-avatar" style={{ '--teacher-color': teacher.color }}>
+              <button
+                type="button"
+                className="teacher-avatar teacher-avatar-button"
+                style={{ '--teacher-color': teacher.color }}
+                onClick={() => teacher.loginPhoto && setSelectedTeacher(teacher)}
+                title={teacher.loginPhoto ? `View ${teacher.name} check-in photo` : 'No check-in photo available'}
+              >
                 {teacher.initials}
-              </div>
+              </button>
               <div className="teacher-info">
                 <div className="teacher-name">{teacher.name}</div>
                 <div className="teacher-subject">{teacher.subject} • {teacher.class}</div>
@@ -74,9 +81,45 @@ export default function TeacherTracking({ teachers }) {
             <div style={{ padding: '12px 0', borderTop: '1px solid #eee', fontSize: '12px', color: '#666' }}>
               📍 Last location: {Math.random() > 0.5 ? '18.52°N, 73.85°E' : 'Offline'}
             </div>
+
+            <button
+              type="button"
+              className="teacher-photo-button"
+              onClick={() => setSelectedTeacher(teacher)}
+              disabled={!teacher.loginPhoto}
+            >
+              {teacher.loginPhoto ? 'View check-in photo' : 'No check-in photo'}
+            </button>
           </div>
         ))}
       </div>
+
+      {selectedTeacher && (
+        <div className="teacher-photo-modal" onClick={() => setSelectedTeacher(null)}>
+          <div className="teacher-photo-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="teacher-photo-header">
+              <div>
+                <div className="teacher-photo-title">{selectedTeacher.name}</div>
+                <div className="teacher-photo-subtitle">
+                  {selectedTeacher.subject} • {selectedTeacher.class} • {selectedTeacher.checkin}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="teacher-photo-close"
+                onClick={() => setSelectedTeacher(null)}
+              >
+                ×
+              </button>
+            </div>
+            <img
+              className="teacher-photo-image"
+              src={selectedTeacher.loginPhoto}
+              alt={`${selectedTeacher.name} check-in`}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

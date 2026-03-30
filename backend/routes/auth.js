@@ -1,6 +1,30 @@
 import express from "express";
 const router = express.Router();
 
+const PRIYA_CHECKIN_PHOTO =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#eff6ff"/>
+          <stop offset="100%" stop-color="#dbeafe"/>
+        </linearGradient>
+      </defs>
+      <rect width="480" height="320" fill="url(#bg)"/>
+      <rect x="28" y="28" width="424" height="264" rx="24" fill="#ffffff" stroke="#cbd5e1"/>
+      <circle cx="142" cy="132" r="54" fill="#4f46e5" opacity="0.12"/>
+      <circle cx="142" cy="118" r="28" fill="#4f46e5" opacity="0.88"/>
+      <path d="M94 188c12-28 35-42 48-42s36 14 48 42" fill="#4f46e5" opacity="0.88"/>
+      <text x="222" y="104" font-size="24" font-family="Arial, sans-serif" fill="#0f172a" font-weight="700">Priya Ramesh</text>
+      <text x="222" y="142" font-size="18" font-family="Arial, sans-serif" fill="#475569">Science Teacher • Class 9A</text>
+      <text x="222" y="178" font-size="16" font-family="Arial, sans-serif" fill="#64748b">Check-in verified at Principal Office</text>
+      <rect x="222" y="202" width="146" height="36" rx="18" fill="#dcfce7"/>
+      <text x="295" y="225" text-anchor="middle" font-size="15" font-family="Arial, sans-serif" fill="#166534" font-weight="700">Checked in</text>
+      <text x="222" y="264" font-size="14" font-family="Arial, sans-serif" fill="#94a3b8">Demo teacher photo</text>
+    </svg>
+  `);
+
 const adminUser = {
   id: 1,
   email: "admin@gmail.com",
@@ -11,7 +35,7 @@ const adminUser = {
 };
 
 const teachers = [
-  { id: 2, name: "Priya Ramesh", email: "teacher1@gmail.com", password: "12345", role: "teacher", subject: "Science", class: "9A", initials: "PR", color: "#4f46e5", status: "present", checkin: "8:47 AM", onDuty: true, absent: 2, leave: 2, rate: "91%", lastLogin: null },
+  { id: 2, name: "Priya Ramesh", email: "teacher1@gmail.com", password: "12345", role: "teacher", subject: "Science", class: "9A", initials: "PR", color: "#4f46e5", status: "present", checkin: "8:47 AM", onDuty: true, absent: 2, leave: 2, rate: "91%", lastLogin: null, loginPhoto: PRIYA_CHECKIN_PHOTO },
 ];
 
 function formatCheckin(date) {
