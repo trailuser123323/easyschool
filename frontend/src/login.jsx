@@ -2,11 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "./api";
 
-const DEMO_ACCOUNTS = [
-  { label:"Admin",   email:"admin@gmail.com",    password:"1234",  initials:"A", color:"#4f46e5", role:"admin",   name:"Admin" },
-  { label:"Teacher", email:"teacher1@gmail.com", password:"12345", initials:"PR", color:"#4f46e5", role:"teacher", name:"Priya Ramesh" },
-];
-
 export default function Login({ onLogin }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -53,8 +48,6 @@ export default function Login({ onLogin }) {
         setLoading(false);
       });
   }
-
-  function fillDemo(acc) { setEmail(acc.email); setPassword(acc.password); setError(""); }
 
   return (
     <div style={s.page}>
@@ -122,17 +115,6 @@ export default function Login({ onLogin }) {
               {loading ? <><span style={s.spinner}/> Signing in…</> : <>Sign In →</>}
             </button>
           </form>
-          <div style={s.demoBox}>
-            <div style={s.demoTitle}>Demo Accounts</div>
-            {DEMO_ACCOUNTS.map(acc=>(
-              <div key={acc.label} className="demo-row" style={s.demoRow} onClick={()=>fillDemo(acc)}>
-                <div style={{ ...s.demoAvatar, background:acc.color }}>{acc.initials}</div>
-                <div style={{ flex:1 }}><div style={s.demoName}>{acc.label}</div></div>
-                <div style={s.demoEmail}>{acc.email}</div>
-              </div>
-            ))}
-            <div style={s.demoHint}>↑ Click a row to autofill credentials</div>
-          </div>
         </div>
       </div>
     </div>
@@ -173,11 +155,4 @@ const s = {
   errorBox:     { background:"rgba(185,28,28,.25)", border:"1px solid rgba(220,38,38,.4)", borderRadius:10, padding:"11px 14px", fontSize:13, color:"#fca5a5", display:"flex", alignItems:"center", gap:8 },
   submitBtn:    { background:"linear-gradient(135deg,#4f46e5,#7c3aed)", color:"#fff", border:"none", borderRadius:12, padding:"15px", fontSize:15, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"'DM Sans',sans-serif", transition:"opacity .2s", boxShadow:"0 4px 24px rgba(79,70,229,.4)" },
   spinner:      { width:16, height:16, border:"2px solid rgba(255,255,255,.3)", borderTopColor:"#fff", borderRadius:"50%", display:"inline-block", animation:"spin .7s linear infinite" },
-  demoBox:      { marginTop:28, background:"rgba(255,255,255,.04)", borderRadius:14, padding:16, border:"1px solid rgba(255,255,255,.07)" },
-  demoTitle:    { fontSize:10, fontWeight:600, color:"rgba(255,255,255,.25)", textTransform:"uppercase", letterSpacing:".1em", marginBottom:12 },
-  demoRow:      { display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, marginBottom:4, transition:"background .15s" },
-  demoAvatar:   { width:32, height:32, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:600, color:"#fff", flexShrink:0 },
-  demoName:     { fontSize:13, fontWeight:500, color:"#fff" },
-  demoEmail:    { fontSize:11, color:"rgba(255,255,255,.3)", fontFamily:"monospace" },
-  demoHint:     { fontSize:11, color:"rgba(255,255,255,.18)", textAlign:"center", marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,.06)" },
 };
