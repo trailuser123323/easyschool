@@ -151,13 +151,62 @@ function LocationPings() {
 
 // ─── CAMERA MODAL ──────────────────────────────────────────
 function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const streamRef = useRef(null);
   const [photo, setPhoto] = useState(initialPhoto || "");
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState("");
   const [reading, setReading] = useState(false);
   const title = action === 'checkin' ? 'Check In Verification' : 'Check Out Verification';
   const sub = action === 'checkin'
     ? "Take a photo outside the Principal's office to verify your arrival."
     : 'Take a photo to confirm your departure.';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function startCamera() {
+      if (photo || !navigator.mediaDevices?.getUserMedia) {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setCameraError("Camera access is not supported in this browser.");
+        }
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setCameraReady(true);
+          setCameraError("");
+        }
+      } catch (error) {
+        setCameraError("Camera permission was blocked. Use Upload instead.");
+      }
+    }
+
+    startCamera();
+
+    return () => {
+      cancelled = true;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [photo]);
 
   function handleFileChange(event) {
     const file = event.target.files?.[0];
@@ -175,6 +224,19 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
     reader.readAsDataURL(file);
   }
 
+  function handleCapturePhoto() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || !canvas) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const context = canvas.getContext("2d");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setPhoto(canvas.toDataURL("image/jpeg", 0.92));
+  }
+
   return (
     <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={styles.modal}>
@@ -189,15 +251,32 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
           onChange={handleFileChange}
           style={{ display: 'none' }}
         />
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
         <div style={styles.cameraPreview}>
-          {photo ? <img src={photo} alt={`${action} capture`} style={styles.cameraImage} /> : (reading ? '⏳' : '📷')}
+          {photo ? (
+            <img src={photo} alt={`${action} capture`} style={styles.cameraImage} />
+          ) : cameraReady ? (
+            <video ref={videoRef} autoPlay playsInline muted style={styles.cameraImage} />
+          ) : (
+            <div style={styles.cameraPlaceholder}>{reading ? '⏳' : '📷'}</div>
+          )}
         </div>
+        {cameraError && <div style={styles.cameraError}>{cameraError}</div>}
         <div style={styles.cameraHint}>📍 Location captured automatically · <b>18.5204° N, 73.8567° E</b></div>
         <div style={styles.modalBtns}>
           <button style={styles.modalBtn} onClick={onClose}>Cancel</button>
+          {!photo && (
+            <button style={styles.modalBtn} onClick={() => fileInputRef.current?.click()}>
+              Upload
+            </button>
+          )}
           <button style={{...styles.modalBtn, ...styles.modalBtnPrimary}} onClick={() => {
             if (!photo) {
-              fileInputRef.current?.click();
+              if (cameraReady) {
+                handleCapturePhoto();
+              } else {
+                fileInputRef.current?.click();
+              }
               return;
             }
             onConfirm({ time: fmtTime(new Date()), photo });
@@ -692,6 +771,8 @@ const styles = {
   modalSub: { fontSize: 13, color: '#6b6b8a', marginBottom: 20 },
   cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 },
   cameraImage: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 },
+  cameraPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 48 },
+  cameraError: { fontSize: 12, color: '#dc2626', textAlign: 'center', marginTop: -6, marginBottom: 12 },
   cameraHint: { fontSize: 12, color: '#6b6b8a', textAlign: 'center', marginBottom: 16 },
   modalBtns: { display: 'flex', gap: 10 },
   modalBtn: { flex: 1, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid #e4e2f0', background: '#f0eff8', color: '#1a1a2e' },
