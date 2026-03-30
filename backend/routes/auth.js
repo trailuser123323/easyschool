@@ -1,183 +1,80 @@
 import express from "express";
-import Teacher from "../models/Teacher.js";
-import Admin from "../models/Admin.js";
-
 const router = express.Router();
 
-// ── SEED default admin + teachers if DB is empty ───────────
-async function seedIfEmpty() {
-  const adminCount = await Admin.countDocuments();
-  if (adminCount === 0) {
-    await Admin.create({
-      name: "Admin",
-      email: "admin@gmail.com",
-      password: "1234",
-      role: "admin",
-    });
-    console.log("✅ Default admin seeded");
-  }
+const adminUser = {
+  id: 1,
+  email: "admin@gmail.com",
+  password: "1234",
+  role: "admin",
+  name: "Admin",
+  initials: "AD",
+};
 
-  const teacherCount = await Teacher.countDocuments();
-  if (teacherCount === 0) {
-    await Teacher.insertMany([
-      { name:"Priya Ramesh",   email:"teacher1@gmail.com", password:"12345", subject:"Science",  className:"9A",  initials:"PR", color:"#4f46e5" },
-      { name:"Amit Sharma",    email:"amit@school.edu",    password:"12345", subject:"Math",     className:"8B",  initials:"AS", color:"#0891b2" },
-      { name:"Rekha Nair",     email:"rekha@school.edu",   password:"12345", subject:"English",  className:"10A", initials:"RN", color:"#d97706" },
-      { name:"Suresh Pillai",  email:"suresh@school.edu",  password:"12345", subject:"History",  className:"7C",  initials:"SP", color:"#dc2626" },
-      { name:"Meera Joshi",    email:"meera@school.edu",   password:"12345", subject:"Physics",  className:"11B", initials:"MJ", color:"#059669" },
-    ]);
-    console.log("✅ Default teachers seeded");
-  }
+const teachers = [
+  { id: 2, name: "Priya Ramesh", email: "teacher1@gmail.com", password: "12345", role: "teacher", subject: "Science", class: "9A", initials: "PR", color: "#4f46e5", status: "present", checkin: "8:47 AM", onDuty: true, absent: 2, leave: 2, rate: "91%", lastLogin: null },
+  { id: 3, name: "Amit Sharma", email: "amit@school.edu", password: "12345", role: "teacher", subject: "Math", class: "8B", initials: "AS", color: "#0891b2", status: "present", checkin: "8:52 AM", onDuty: true, absent: 1, leave: 1, rate: "95%", lastLogin: null },
+  { id: 4, name: "Rekha Nair", email: "rekha@school.edu", password: "12345", role: "teacher", subject: "English", class: "10A", initials: "RN", color: "#d97706", status: "leave", checkin: "–", onDuty: false, absent: 3, leave: 4, rate: "85%", lastLogin: null },
+  { id: 5, name: "Suresh Pillai", email: "suresh@school.edu", password: "12345", role: "teacher", subject: "History", class: "7C", initials: "SP", color: "#dc2626", status: "absent", checkin: "–", onDuty: false, absent: 4, leave: 1, rate: "80%", lastLogin: null },
+  { id: 6, name: "Meera Joshi", email: "meera@school.edu", password: "12345", role: "teacher", subject: "Physics", class: "11B", initials: "MJ", color: "#059669", status: "present", checkin: "8:39 AM", onDuty: true, absent: 0, leave: 2, rate: "98%", lastLogin: null },
+  { id: 7, name: "Kiran Desai", email: "kiran@school.edu", password: "12345", role: "teacher", subject: "Chemistry", class: "12A", initials: "KD", color: "#7c3aed", status: "present", checkin: "8:55 AM", onDuty: false, absent: 1, leave: 3, rate: "93%", lastLogin: null },
+  { id: 8, name: "Pooja Kulkarni", email: "pooja@school.edu", password: "12345", role: "teacher", subject: "Biology", class: "9B", initials: "PK", color: "#be185d", status: "absent", checkin: "–", onDuty: false, absent: 5, leave: 2, rate: "78%", lastLogin: null },
+  { id: 9, name: "Raj Patil", email: "raj@school.edu", password: "12345", role: "teacher", subject: "Geo", class: "8A", initials: "RP", color: "#0891b2", status: "present", checkin: "8:44 AM", onDuty: true, absent: 2, leave: 1, rate: "90%", lastLogin: null },
+];
+
+function formatCheckin(date) {
+  return new Date(date).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
-seedIfEmpty();
 
-// ── POST /api/auth/login ───────────────────────────────────
-router.post("/login", async (req, res) => {
-  const { email, password, loginPhoto } = req.body;
+function serializeTeacher(teacher) {
+  const { password, ...userData } = teacher;
+  return userData;
+}
 
-  try {
-    // ── Check admin first ────────────────────────────────
-    const admin = await Admin.findOne({ email: email.toLowerCase() });
-    if (admin) {
-      if (admin.password !== password)
-        return res.status(401).json({ message: "Invalid password." });
+router.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  const normalizedEmail = email?.trim().toLowerCase();
 
-      return res.json({
-        token: "admin-token-" + admin._id,
-        user: {
-          _id:      admin._id,
-          name:     admin.name,
-          email:    admin.email,
-          role:     "admin",
-          initials: "AD",
-        },
-      });
-    }
-
-    // ── Check teacher ────────────────────────────────────
-    const teacher = await Teacher.findOne({ email: email.toLowerCase() });
-    if (!teacher)
-      return res.status(401).json({ message: "Invalid email or password." });
-
-    if (teacher.password !== password)
-      return res.status(401).json({ message: "Invalid password." });
-
-    // ── Save login photo + timestamp in MongoDB ──────────
-    const loginRecord = {
-      photo:     loginPhoto || null,
-      timestamp: new Date(),
-    };
-
-    await Teacher.findByIdAndUpdate(teacher._id, {
-      lastLogin: new Date(),
-      loginPhoto: loginPhoto || teacher.loginPhoto,   // latest photo (quick access)
-      $push: {
-        loginHistory: {
-          $each:     [loginRecord],
-          $slice:    -30,   // keep only last 30 logins per teacher
-          $position: 0,
-        },
-      },
-    });
-
-    return res.json({
-      token: "teacher-token-" + teacher._id,
-      user: {
-        _id:        teacher._id,
-        name:       teacher.name,
-        email:      teacher.email,
-        role:       "teacher",
-        subject:    teacher.subject,
-        class:      teacher.className,
-        initials:   teacher.initials,
-        color:      teacher.color,
-        loginPhoto: loginPhoto || teacher.loginPhoto,
-      },
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+  if (normalizedEmail === adminUser.email && password === adminUser.password) {
+    const { password: _, ...userData } = adminUser;
+    return res.json({ token: "admin-token-" + adminUser.id, user: userData });
   }
+
+  const teacher = teachers.find(
+    (item) => item.email === normalizedEmail && item.password === password
+  );
+
+  if (!teacher) {
+    return res.status(401).json({ message: "Invalid email or password." });
+  }
+
+  teacher.lastLogin = new Date().toISOString();
+  teacher.status = "present";
+  teacher.checkin = formatCheckin(teacher.lastLogin);
+
+  return res.json({
+    token: "teacher-token-" + teacher.id,
+    user: serializeTeacher(teacher),
+  });
 });
 
-// ── GET /api/auth/teachers  (admin — list all with latest photo) ──
-router.get("/teachers", async (req, res) => {
-  try {
-    // Return all fields except password, but include loginPhoto & lastLogin
-    const teachers = await Teacher.find(
-      {},
-      "-password -loginHistory"   // exclude password & full history for list view
-    ).sort({ name: 1 });
-    res.json(teachers);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+router.get("/teachers", (_req, res) => {
+  res.json(teachers.map(serializeTeacher));
 });
 
-// ── GET /api/auth/teachers/:id/history  (login photo history) ─
-router.get("/teachers/:id/history", async (req, res) => {
-  try {
-    const teacher = await Teacher.findById(
-      req.params.id,
-      "name initials color loginHistory"
-    );
-    if (!teacher) return res.status(404).json({ message: "Teacher not found" });
-    res.json(teacher);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
+router.put("/teachers/:id", (req, res) => {
+  const teacherId = Number(req.params.id);
+  const teacher = teachers.find((item) => item.id === teacherId);
+
+  if (!teacher) {
+    return res.status(404).json({ message: "Teacher not found." });
   }
-});
 
-// ── POST /api/auth/teachers  (add teacher) ────────────────
-router.post("/teachers", async (req, res) => {
-  try {
-    const { name, email, password, subject, className, color } = req.body;
-    const exists = await Teacher.findOne({ email: email.toLowerCase() });
-    if (exists) return res.status(400).json({ message: "Email already exists" });
-
-    const parts    = name.trim().split(" ");
-    const initials = ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase();
-
-    const teacher = await Teacher.create({
-      name,
-      email:    email.toLowerCase(),
-      password,
-      subject,
-      className,
-      color:    color || "#4f46e5",
-      initials,
-    });
-
-    const { password: _, ...data } = teacher.toObject();
-    res.status(201).json(data);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ── DELETE /api/auth/teachers/:id ────────────────────────
-router.delete("/teachers/:id", async (req, res) => {
-  try {
-    await Teacher.findByIdAndDelete(req.params.id);
-    res.json({ message: "Teacher deleted" });
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ── PUT /api/auth/teachers/:id  (update status / duty etc.) ─
-router.put("/teachers/:id", async (req, res) => {
-  try {
-    const updated = await Teacher.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, select: "-password -loginHistory" }
-    );
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+  Object.assign(teacher, req.body);
+  return res.json(serializeTeacher(teacher));
 });
 
 export default router;
