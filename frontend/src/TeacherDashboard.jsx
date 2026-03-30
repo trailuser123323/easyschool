@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { apiUrl } from "./api";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -149,27 +150,60 @@ function LocationPings() {
 }
 
 // ─── CAMERA MODAL ──────────────────────────────────────────
-function CameraModal({ action, onClose, onConfirm }) {
-  const [captured, setCaptured] = useState(false);
+function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
+  const fileInputRef = useRef(null);
+  const [photo, setPhoto] = useState(initialPhoto || "");
+  const [reading, setReading] = useState(false);
   const title = action === 'checkin' ? 'Check In Verification' : 'Check Out Verification';
   const sub = action === 'checkin'
     ? "Take a photo outside the Principal's office to verify your arrival."
     : 'Take a photo to confirm your departure.';
+
+  function handleFileChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    setReading(true);
+    reader.onload = () => {
+      setPhoto(typeof reader.result === "string" ? reader.result : "");
+      setReading(false);
+    };
+    reader.onerror = () => {
+      setReading(false);
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={styles.modal}>
         <button style={styles.modalClose} onClick={onClose}>✕</button>
         <div style={styles.modalTitle}>{title}</div>
         <div style={styles.modalSub}>{sub}</div>
-        <div style={styles.cameraPreview}>{captured ? '🤳' : '📷'}</div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+        <div style={styles.cameraPreview}>
+          {photo ? <img src={photo} alt={`${action} capture`} style={styles.cameraImage} /> : (reading ? '⏳' : '📷')}
+        </div>
         <div style={styles.cameraHint}>📍 Location captured automatically · <b>18.5204° N, 73.8567° E</b></div>
         <div style={styles.modalBtns}>
           <button style={styles.modalBtn} onClick={onClose}>Cancel</button>
           <button style={{...styles.modalBtn, ...styles.modalBtnPrimary}} onClick={() => {
-            if (!captured) { setCaptured(true); }
-            else { onConfirm(fmtTime(new Date())); onClose(); }
+            if (!photo) {
+              fileInputRef.current?.click();
+              return;
+            }
+            onConfirm({ time: fmtTime(new Date()), photo });
+            onClose();
           }}>
-            {captured ? '✅ Confirm' : '📸 Capture Photo'}
+            {photo ? '✅ Confirm' : '📸 Capture Photo'}
           </button>
         </div>
       </div>
@@ -178,11 +212,50 @@ function CameraModal({ action, onClose, onConfirm }) {
 }
 
 // ─── CHECK IN / OUT CARD ───────────────────────────────────
-function AttendanceCard({ showToast }) {
-  const [checkinTime, setCheckinTime] = useState(null);
-  const [checkoutTime, setCheckoutTime] = useState(null);
-  const [onDuty, setOnDuty] = useState(false);
+function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
+  const teacherId = teacher?.id || teacher?._id;
+  const [checkinTime, setCheckinTime] = useState(teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : null);
+  const [checkoutTime, setCheckoutTime] = useState(teacher?.checkout && teacher.checkout !== '–' ? teacher.checkout : null);
+  const [checkinPhoto, setCheckinPhoto] = useState(teacher?.loginPhoto || '');
+  const [checkoutPhoto, setCheckoutPhoto] = useState(teacher?.checkoutPhoto || '');
+  const [onDuty, setOnDuty] = useState(Boolean(teacher?.onDuty));
   const [modal, setModal] = useState(null);
+
+  useEffect(() => {
+    setCheckinTime(teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : null);
+    setCheckoutTime(teacher?.checkout && teacher.checkout !== '–' ? teacher.checkout : null);
+    setCheckinPhoto(teacher?.loginPhoto || '');
+    setCheckoutPhoto(teacher?.checkoutPhoto || '');
+    setOnDuty(Boolean(teacher?.onDuty));
+  }, [teacher]);
+
+  async function persistAttendance(nextFields) {
+    if (!teacherId) return;
+
+    try {
+      const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextFields),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to update attendance.');
+      }
+
+      onTeacherUpdate?.(data);
+
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        if ((parsedUser.id || parsedUser._id) === teacherId) {
+          localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...data }));
+        }
+      }
+    } catch (error) {
+      showToast('⚠️', error.message || 'Unable to save attendance');
+    }
+  }
 
   return (
     <div style={styles.card}>
@@ -216,10 +289,27 @@ function AttendanceCard({ showToast }) {
         <LocationPings />
       </div>
       {modal && (
-        <CameraModal action={modal} onClose={() => setModal(null)}
-          onConfirm={(t) => {
-            if (modal === 'checkin') setCheckinTime(t); else setCheckoutTime(t);
-            showToast(modal === 'checkin' ? '📍' : '👋', (modal === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + t);
+        <CameraModal action={modal} onClose={() => setModal(null)} initialPhoto={modal === 'checkin' ? checkinPhoto : checkoutPhoto}
+          onConfirm={({ time, photo }) => {
+            if (modal === 'checkin') {
+              setCheckinTime(time);
+              setCheckinPhoto(photo);
+              persistAttendance({
+                checkin: time,
+                lastLogin: new Date().toISOString(),
+                loginPhoto: photo,
+                status: 'present',
+              });
+            } else {
+              setCheckoutTime(time);
+              setCheckoutPhoto(photo);
+              persistAttendance({
+                checkout: time,
+                lastCheckout: new Date().toISOString(),
+                checkoutPhoto: photo,
+              });
+            }
+            showToast(modal === 'checkin' ? '📍' : '👋', (modal === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + time);
           }} />
       )}
     </div>
@@ -442,7 +532,7 @@ function EmptySection({ icon, title, msg }) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────
-function Dashboard({ showToast, openLeave }) {
+function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
   return (
     <div>
       <div style={styles.topbar}>
@@ -458,7 +548,7 @@ function Dashboard({ showToast, openLeave }) {
       <StatsRow />
       <div style={styles.grid2}>
         <div style={styles.gridLeft}>
-          <AttendanceCard showToast={showToast} />
+          <AttendanceCard teacher={teacher} showToast={showToast} onTeacherUpdate={onTeacherUpdate} />
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <div style={styles.cardTitle}>Announcements</div>
@@ -476,9 +566,14 @@ function Dashboard({ showToast, openLeave }) {
 
 // ─── APP ───────────────────────────────────────────────────
 export default function TeacherDashboard({ teacher, onLogout }) {
+  const [teacherState, setTeacherState] = useState(teacher);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [openLeave, setOpenLeave] = useState(false);
+
+  useEffect(() => {
+    setTeacherState(teacher);
+  }, [teacher]);
 
   function showToast(icon, msg) {
     setToast({ icon, msg });
@@ -502,9 +597,9 @@ export default function TeacherDashboard({ teacher, onLogout }) {
         .status-dot-anim { animation: pulse 2s infinite; }
         input[type="date"], select, textarea, input[type="file"] { font-family: 'DM Sans', sans-serif; }
       `}</style>
-      <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={teacher} onLogout={onLogout} />
+      <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={teacherState} onLogout={onLogout} />
       <main style={styles.main}>
-        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} />}
+        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={teacherState} onTeacherUpdate={setTeacherState} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
         {activeSection === 'timetable' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Timetable</div><div style={styles.pageSub}>Weekly class schedule</div></div></div><EmptySection icon="📋" title="Timetable coming soon" msg="Your weekly teaching schedule will be shown here once configured by the admin." /></>}
@@ -596,6 +691,7 @@ const styles = {
   modalTitle: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 600, marginBottom: 8 },
   modalSub: { fontSize: 13, color: '#6b6b8a', marginBottom: 20 },
   cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 },
+  cameraImage: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 },
   cameraHint: { fontSize: 12, color: '#6b6b8a', textAlign: 'center', marginBottom: 16 },
   modalBtns: { display: 'flex', gap: 10 },
   modalBtn: { flex: 1, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid #e4e2f0', background: '#f0eff8', color: '#1a1a2e' },
