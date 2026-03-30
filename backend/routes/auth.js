@@ -12,13 +12,6 @@ const adminUser = {
 
 const teachers = [
   { id: 2, name: "Priya Ramesh", email: "teacher1@gmail.com", password: "12345", role: "teacher", subject: "Science", class: "9A", initials: "PR", color: "#4f46e5", status: "present", checkin: "8:47 AM", onDuty: true, absent: 2, leave: 2, rate: "91%", lastLogin: null },
-  { id: 3, name: "Amit Sharma", email: "amit@school.edu", password: "12345", role: "teacher", subject: "Math", class: "8B", initials: "AS", color: "#0891b2", status: "present", checkin: "8:52 AM", onDuty: true, absent: 1, leave: 1, rate: "95%", lastLogin: null },
-  { id: 4, name: "Rekha Nair", email: "rekha@school.edu", password: "12345", role: "teacher", subject: "English", class: "10A", initials: "RN", color: "#d97706", status: "leave", checkin: "–", onDuty: false, absent: 3, leave: 4, rate: "85%", lastLogin: null },
-  { id: 5, name: "Suresh Pillai", email: "suresh@school.edu", password: "12345", role: "teacher", subject: "History", class: "7C", initials: "SP", color: "#dc2626", status: "absent", checkin: "–", onDuty: false, absent: 4, leave: 1, rate: "80%", lastLogin: null },
-  { id: 6, name: "Meera Joshi", email: "meera@school.edu", password: "12345", role: "teacher", subject: "Physics", class: "11B", initials: "MJ", color: "#059669", status: "present", checkin: "8:39 AM", onDuty: true, absent: 0, leave: 2, rate: "98%", lastLogin: null },
-  { id: 7, name: "Kiran Desai", email: "kiran@school.edu", password: "12345", role: "teacher", subject: "Chemistry", class: "12A", initials: "KD", color: "#7c3aed", status: "present", checkin: "8:55 AM", onDuty: false, absent: 1, leave: 3, rate: "93%", lastLogin: null },
-  { id: 8, name: "Pooja Kulkarni", email: "pooja@school.edu", password: "12345", role: "teacher", subject: "Biology", class: "9B", initials: "PK", color: "#be185d", status: "absent", checkin: "–", onDuty: false, absent: 5, leave: 2, rate: "78%", lastLogin: null },
-  { id: 9, name: "Raj Patil", email: "raj@school.edu", password: "12345", role: "teacher", subject: "Geo", class: "8A", initials: "RP", color: "#0891b2", status: "present", checkin: "8:44 AM", onDuty: true, absent: 2, leave: 1, rate: "90%", lastLogin: null },
 ];
 
 function formatCheckin(date) {
