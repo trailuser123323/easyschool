@@ -89,25 +89,33 @@ export default function AdminDashboard({ user, onLogout }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(apiUrl('/api/auth/teachers'))
-      .then(async (response) => {
+    async function loadTeachers() {
+      try {
+        const response = await fetch(apiUrl('/api/auth/teachers'));
         const data = await response.json().catch(() => []);
         if (!response.ok) {
           throw new Error(data.message || 'Unable to load teachers.');
         }
 
-        if (!cancelled && Array.isArray(data) && data.length > 0) {
-          setTeachers(data.map(normaliseTeacher));
+        if (!cancelled) {
+          setTeachers(Array.isArray(data) ? data.map(normaliseTeacher) : []);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setTeachers([]);
         }
-      });
+      }
+    }
+
+    loadTeachers();
+    const intervalId = setInterval(loadTeachers, 5000);
+    const handleFocus = () => loadTeachers();
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
