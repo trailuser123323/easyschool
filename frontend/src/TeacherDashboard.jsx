@@ -27,6 +27,10 @@ function fmtDate(d) {
   return dy[d.getDay()] + ', ' + d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear();
 }
 
+function normaliseTimetable(timetable) {
+  return Array.isArray(timetable) ? timetable : [];
+}
+
 function dataUrlToFile(dataUrl, filename) {
   const [meta, content] = dataUrl.split(',');
   const mimeMatch = meta?.match(/data:(.*?);base64/);
@@ -714,6 +718,49 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
   );
 }
 
+function TimetableSection({ teacher }) {
+  const timetable = [...normaliseTimetable(teacher?.timetable)].sort((a, b) => {
+    const weekdayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayDelta = weekdayOrder.indexOf(a.day) - weekdayOrder.indexOf(b.day);
+    return dayDelta !== 0 ? dayDelta : String(a.period).localeCompare(String(b.period));
+  });
+
+  return (
+    <div>
+      <div style={styles.topbar}>
+        <div>
+          <div style={styles.pageTitle}>Timetable</div>
+          <div style={styles.pageSub}>Weekly class schedule</div>
+        </div>
+      </div>
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div style={styles.cardTitle}>Assigned Periods</div>
+        </div>
+        <div style={styles.cardBody}>
+          {timetable.length > 0 ? (
+            <div style={styles.timetableList}>
+              {timetable.map((entry, index) => (
+                <div key={`${entry.day}-${entry.period}-${index}`} style={styles.timetableRow}>
+                  <div>
+                    <div style={styles.timetableDay}>{entry.day}</div>
+                    <div style={styles.timetableMeta}>{entry.period} · {entry.subject}</div>
+                  </div>
+                  <div style={styles.timetableRoom}>{entry.room || 'Room not set'}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={styles.timetableEmpty}>
+              Your timetable has not been assigned yet. Ask the admin to add schedule slots.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ───────────────────────────────────────────────────
 export default function TeacherDashboard({ teacher, onLogout }) {
   const [teacherState, setTeacherState] = useState(teacher);
@@ -752,7 +799,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
         {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={teacherState} onTeacherUpdate={setTeacherState} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
-        {activeSection === 'timetable' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Timetable</div><div style={styles.pageSub}>Weekly class schedule</div></div></div><EmptySection icon="📋" title="Timetable coming soon" msg="Your weekly teaching schedule will be shown here once configured by the admin." /></>}
+        {activeSection === 'timetable' && <TimetableSection teacher={teacherState} />}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
           <div style={styles.card}><AnnouncementList items={[...announcements, { icon: '📌', iconType: 'info', title: 'Parent-Teacher Meeting — March 29', body: 'All class teachers must be present. Individual schedules will be shared by the coordinator.', time: 'Mar 15 · From: Admin Office' }]} /></div></>
@@ -849,6 +896,12 @@ const styles = {
   modalBtns: { display: 'flex', gap: 10 },
   modalBtn: { flex: 1, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid #e4e2f0', background: '#f0eff8', color: '#1a1a2e' },
   modalBtnPrimary: { background: '#4f46e5', color: '#fff', borderColor: '#4f46e5' },
+  timetableList: { display: 'flex', flexDirection: 'column', gap: 12 },
+  timetableRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, border: '1px solid #e4e2f0', borderRadius: 12, padding: '14px 16px', background: '#fff' },
+  timetableDay: { fontSize: 13, fontWeight: 700, color: '#1a1a2e' },
+  timetableMeta: { marginTop: 4, fontSize: 13, color: '#6b6b8a' },
+  timetableRoom: { fontSize: 13, fontWeight: 600, color: '#4f46e5' },
+  timetableEmpty: { border: '1px dashed #d8d4eb', borderRadius: 12, padding: '18px', background: '#f7f6fd', color: '#6b6b8a', fontSize: 13 },
   modalClose: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b6b8a' },
   emptyState: { textAlign: 'center', padding: '80px 40px' },
   emptyTitle: { fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: '#1a1a2e', marginBottom: 10 },

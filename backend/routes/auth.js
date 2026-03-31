@@ -155,6 +155,7 @@ router.post("/teachers", async (req, res) => {
       absent: 0,
       leave: 0,
       rate: "0%",
+      timetable: [],
     });
 
     return res.status(201).json(serializeTeacher(teacher));
