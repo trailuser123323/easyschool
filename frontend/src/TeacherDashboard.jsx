@@ -607,12 +607,26 @@ function AnnouncementList({ items }) {
 function LeaveCard({ defaultOpen, showToast }) {
   const [open, setOpen] = useState(defaultOpen || false);
   useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
-
-  const leaves = [
+  const [leaves, setLeaves] = useState([
     { type: 'Sick Leave', dates: 'Mar 5, 2025', status: 'Approved', color: '#059669', bg: 'rgba(5,150,105,.1)' },
     { type: 'Casual Leave', dates: 'Mar 12–13', status: 'Approved', color: '#059669', bg: 'rgba(5,150,105,.1)' },
     { type: 'Personal Leave', dates: 'Mar 28, 2025', status: 'Pending', color: '#d97706', bg: 'rgba(217,119,6,.1)' },
-  ];
+  ]);
+  const [form, setForm] = useState({
+    type: 'Sick Leave',
+    halfDay: 'Full Day',
+    fromDate: '',
+    toDate: '',
+    reason: '',
+  });
+
+  function formatLeaveDates(fromDate, toDate) {
+    if (!fromDate) return 'Date not set';
+    const fromLabel = new Date(`${fromDate}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    if (!toDate || toDate === fromDate) return fromLabel;
+    const toLabel = new Date(`${toDate}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${fromLabel} – ${toLabel}`;
+  }
 
   return (
     <div style={styles.card}>
@@ -645,23 +659,47 @@ function LeaveCard({ defaultOpen, showToast }) {
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>New Leave Request</div>
             <div style={styles.formRow}>
               <div style={styles.fgl}><label style={styles.fglLabel}>Leave Type</label>
-                <select style={styles.fglInput}><option>Sick Leave</option><option>Casual Leave</option><option>Personal Leave</option><option>Maternity / Paternity</option><option>Emergency Leave</option></select></div>
+                <select style={styles.fglInput} value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}><option>Sick Leave</option><option>Casual Leave</option><option>Personal Leave</option><option>Maternity / Paternity</option><option>Emergency Leave</option></select></div>
               <div style={styles.fgl}><label style={styles.fglLabel}>Half Day?</label>
-                <select style={styles.fglInput}><option>Full Day</option><option>First Half</option><option>Second Half</option></select></div>
+                <select style={styles.fglInput} value={form.halfDay} onChange={(event) => setForm((current) => ({ ...current, halfDay: event.target.value }))}><option>Full Day</option><option>First Half</option><option>Second Half</option></select></div>
             </div>
             <div style={styles.formRow}>
-              <div style={styles.fgl}><label style={styles.fglLabel}>From Date</label><input type="date" style={styles.fglInput} /></div>
-              <div style={styles.fgl}><label style={styles.fglLabel}>To Date</label><input type="date" style={styles.fglInput} /></div>
+              <div style={styles.fgl}><label style={styles.fglLabel}>From Date</label><input type="date" style={styles.fglInput} value={form.fromDate} onChange={(event) => setForm((current) => ({ ...current, fromDate: event.target.value }))} /></div>
+              <div style={styles.fgl}><label style={styles.fglLabel}>To Date</label><input type="date" style={styles.fglInput} value={form.toDate} onChange={(event) => setForm((current) => ({ ...current, toDate: event.target.value }))} /></div>
             </div>
             <div style={{...styles.fgl, marginBottom: 14}}>
               <label style={styles.fglLabel}>Reason</label>
-              <textarea style={{...styles.fglInput, resize: 'vertical', minHeight: 70}} placeholder="Briefly describe the reason..." />
+              <textarea style={{...styles.fglInput, resize: 'vertical', minHeight: 70}} placeholder="Briefly describe the reason..." value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} />
             </div>
             <div style={{...styles.fgl, marginBottom: 14}}>
               <label style={styles.fglLabel}>Document (optional)</label>
               <input type="file" accept=".pdf,.jpg,.png" style={styles.fglInput} />
             </div>
-            <button style={styles.submitBtn} onClick={() => { showToast('📝', 'Leave request submitted successfully'); setOpen(false); }}>
+            <button style={styles.submitBtn} onClick={() => {
+              if (!form.fromDate || !form.reason.trim()) {
+                showToast('⚠️', 'Add dates and a reason before submitting');
+                return;
+              }
+
+              const nextLeave = {
+                type: `${form.type}${form.halfDay !== 'Full Day' ? ` (${form.halfDay})` : ''}`,
+                dates: formatLeaveDates(form.fromDate, form.toDate || form.fromDate),
+                status: 'Pending',
+                color: '#d97706',
+                bg: 'rgba(217,119,6,.1)',
+              };
+
+              setLeaves((current) => [nextLeave, ...current]);
+              setForm({
+                type: 'Sick Leave',
+                halfDay: 'Full Day',
+                fromDate: '',
+                toDate: '',
+                reason: '',
+              });
+              showToast('📝', 'Leave request submitted successfully');
+              setOpen(false);
+            }}>
               Submit Leave Request
             </button>
           </div>
