@@ -157,6 +157,7 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
   const streamRef = useRef(null);
   const [photo, setPhoto] = useState(initialPhoto || "");
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [reading, setReading] = useState(false);
   const title = action === 'checkin' ? 'Check In Verification' : 'Check Out Verification';
@@ -176,8 +177,9 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
       }
 
       try {
+        setCameraLoading(true);
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
+          video: { facingMode: { ideal: "environment" } },
           audio: false,
         });
 
@@ -194,6 +196,10 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
         }
       } catch (error) {
         setCameraError("Camera permission was blocked. Use Upload instead.");
+      } finally {
+        if (!cancelled) {
+          setCameraLoading(false);
+        }
       }
     }
 
@@ -258,25 +264,33 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
           ) : cameraReady ? (
             <video ref={videoRef} autoPlay playsInline muted style={styles.cameraImage} />
           ) : (
-            <div style={styles.cameraPlaceholder}>{reading ? '⏳' : '📷'}</div>
+            <div style={styles.cameraPlaceholder}>{reading || cameraLoading ? '⏳' : '📷'}</div>
           )}
         </div>
         {cameraError && <div style={styles.cameraError}>{cameraError}</div>}
+        {!cameraError && !photo && (
+          <div style={styles.cameraStatus}>
+            {cameraReady ? 'Camera ready' : cameraLoading ? 'Starting camera...' : 'Waiting for camera permission...'}
+          </div>
+        )}
         <div style={styles.cameraHint}>📍 Location captured automatically · <b>18.5204° N, 73.8567° E</b></div>
         <div style={styles.modalBtns}>
           <button style={styles.modalBtn} onClick={onClose}>Cancel</button>
-          {!photo && (
+          {!photo && cameraError && (
             <button style={styles.modalBtn} onClick={() => fileInputRef.current?.click()}>
-              Upload
+              Upload Instead
             </button>
           )}
-          <button style={{...styles.modalBtn, ...styles.modalBtnPrimary}} onClick={() => {
+          <button
+            style={{
+              ...styles.modalBtn,
+              ...styles.modalBtnPrimary,
+              ...(!photo && !cameraReady ? styles.modalBtnDisabled : {}),
+            }}
+            disabled={!photo && !cameraReady}
+            onClick={() => {
             if (!photo) {
-              if (cameraReady) {
-                handleCapturePhoto();
-              } else {
-                fileInputRef.current?.click();
-              }
+              handleCapturePhoto();
               return;
             }
             onConfirm({ time: fmtTime(new Date()), photo });
@@ -778,10 +792,12 @@ const styles = {
   cameraImage: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 },
   cameraPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 48 },
   cameraError: { fontSize: 12, color: '#dc2626', textAlign: 'center', marginTop: -6, marginBottom: 12 },
+  cameraStatus: { fontSize: 12, color: '#6b6b8a', textAlign: 'center', marginTop: -6, marginBottom: 12 },
   cameraHint: { fontSize: 12, color: '#6b6b8a', textAlign: 'center', marginBottom: 16 },
   modalBtns: { display: 'flex', gap: 10 },
   modalBtn: { flex: 1, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid #e4e2f0', background: '#f0eff8', color: '#1a1a2e' },
   modalBtnPrimary: { background: '#4f46e5', color: '#fff', borderColor: '#4f46e5' },
+  modalBtnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
   modalClose: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b6b8a' },
   emptyState: { textAlign: 'center', padding: '80px 40px' },
   emptyTitle: { fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: '#1a1a2e', marginBottom: 10 },
