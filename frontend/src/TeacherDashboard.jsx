@@ -5,17 +5,6 @@ import { upsertFallbackTeacher } from "./demoData";
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-const attn = {
-  '2025-3-3':{s:'present',i:'8:45 AM',o:'4:00 PM'},'2025-3-4':{s:'present',i:'8:50 AM',o:'4:05 PM'},
-  '2025-3-5':{s:'leave',i:'–',o:'–'},'2025-3-6':{s:'present',i:'8:42 AM',o:'4:10 PM'},
-  '2025-3-7':{s:'present',i:'8:55 AM',o:'4:00 PM'},'2025-3-10':{s:'present',i:'8:40 AM',o:'4:00 PM'},
-  '2025-3-11':{s:'absent',i:'–',o:'–'},'2025-3-12':{s:'leave',i:'–',o:'–'},
-  '2025-3-13':{s:'leave',i:'–',o:'–'},'2025-3-14':{s:'present',i:'8:52 AM',o:'4:00 PM'},
-  '2025-3-17':{s:'present',i:'8:48 AM',o:'4:00 PM'},'2025-3-18':{s:'present',i:'8:44 AM',o:'4:00 PM'},
-  '2025-3-19':{s:'present',i:'8:50 AM',o:'4:00 PM'},'2025-3-20':{s:'absent',i:'–',o:'–'},
-  '2025-3-21':{s:'present',i:'8:47 AM',o:'–'}
-};
-
 function padZ(n) { return String(n).padStart(2, '0'); }
 function fmtTime(d) {
   let h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? 'PM' : 'AM';
@@ -26,6 +15,56 @@ function fmtDate(d) {
   const dy = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const mo = MONTHS;
   return dy[d.getDay()] + ', ' + d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function formatTeacherRole(teacher) {
+  if (!teacher) return "";
+
+  const subject = teacher.subject || "General";
+  const className = teacher.class || teacher.className || "Unassigned";
+  return `${subject} · Class ${className}`;
+}
+
+function buildAttendanceMap(teacher, now = new Date()) {
+  const records = {};
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const absentDays = Math.max(0, Math.min(Number(teacher?.absent) || 0, daysInMonth));
+  const leaveDays = Math.max(0, Math.min(Number(teacher?.leave) || 0, daysInMonth - absentDays));
+  let absentLeft = absentDays;
+  let leaveLeft = leaveDays;
+
+  for (let day = 1; day <= now.getDate(); day += 1) {
+    const date = new Date(year, month, day);
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+    let status = "present";
+    if (leaveLeft > 0 && day % 6 === 0) {
+      status = "leave";
+      leaveLeft -= 1;
+    } else if (absentLeft > 0 && day % 7 === 0) {
+      status = "absent";
+      absentLeft -= 1;
+    }
+
+    records[`${year}-${month + 1}-${day}`] = {
+      s: status,
+      i: status === "present" ? "8:45 AM" : "–",
+      o: status === "present" ? "4:00 PM" : "–",
+    };
+  }
+
+  if (teacher?.checkin && teacher.checkin !== "–") {
+    records[`${year}-${month + 1}-${now.getDate()}`] = {
+      s: teacher.status === "absent" ? "absent" : teacher.status === "leave" ? "leave" : "present",
+      i: teacher.checkin,
+      o: teacher.checkout && teacher.checkout !== "–" ? teacher.checkout : "–",
+    };
+  }
+
+  return records;
 }
 
 // ─── SIDEBAR ───────────────────────────────────────────────
@@ -41,7 +80,7 @@ function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
   ];
   const initials = teacher?.initials || 'T';
   const name     = teacher?.name     || 'Teacher';
-  const role     = teacher ? `${teacher.subject} · Class ${teacher.class}` : '';
+  const role     = formatTeacherRole(teacher);
   return (
     <aside style={styles.sidebar}>
       <div style={styles.logoArea}><div style={styles.portalLabel}>Staff Portal</div></div>
@@ -84,12 +123,17 @@ function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
 }
 
 // ─── STATS ROW ─────────────────────────────────────────────
-function StatsRow() {
+function StatsRow({ teacher }) {
+  const absentDays = Number(teacher?.absent) || 0;
+  const leaveTaken = Number(teacher?.leave) || 0;
+  const onTimeRate = teacher?.rate || '0%';
+  const lastCheckin = teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : 'Not checked in';
+  const presentStatus = teacher?.status === 'present' ? 'Present today' : teacher?.status === 'leave' ? 'On leave today' : 'Marked absent today';
   const stats = [
-    { label: 'Present Days', value: 18, sub: 'Out of 22 working days', color: '#059669' },
-    { label: 'Absent Days', value: 2, sub: 'This month', color: '#dc2626' },
-    { label: 'Leave Taken', value: 2, sub: '3 leaves remaining', color: '#d97706' },
-    { label: 'On-Time Rate', value: '91%', sub: 'avg. 8:47 AM arrival', color: '#2563eb' },
+    { label: 'Today', value: teacher?.status === 'present' ? 'Present' : teacher?.status === 'leave' ? 'Leave' : 'Absent', sub: presentStatus, color: teacher?.status === 'present' ? '#059669' : teacher?.status === 'leave' ? '#d97706' : '#dc2626' },
+    { label: 'Absent Days', value: absentDays, sub: 'Recorded this month', color: '#dc2626' },
+    { label: 'Leave Taken', value: leaveTaken, sub: 'Current month total', color: '#d97706' },
+    { label: 'On-Time Rate', value: onTimeRate, sub: `Last check-in: ${lastCheckin}`, color: '#2563eb' },
   ];
   return (
     <div style={styles.statsRow}>
@@ -615,10 +659,11 @@ function LeaveCard({ defaultOpen, showToast }) {
 }
 
 // ─── CALENDAR ──────────────────────────────────────────────
-function Calendar() {
+function Calendar({ teacher }) {
   const NOW = new Date();
-  const [cY, setCY] = useState(2025);
-  const [cM, setCM] = useState(2);
+  const attendanceMap = buildAttendanceMap(teacher, NOW);
+  const [cY, setCY] = useState(NOW.getFullYear());
+  const [cM, setCM] = useState(NOW.getMonth());
   const [dayDetail, setDayDetail] = useState(null);
 
   const prevMonth = () => { if (cM === 0) { setCM(11); setCY(y => y - 1); } else setCM(m => m - 1); };
@@ -632,7 +677,7 @@ function Calendar() {
   for (let i = fd - 1; i >= 0; i--) cells.push({ day: pd - i, type: 'other' });
   for (let d = 1; d <= dim; d++) {
     const key = cY + '-' + (cM + 1) + '-' + d;
-    const data = attn[key];
+    const data = attendanceMap[key];
     const today = d === NOW.getDate() && cM === NOW.getMonth() && cY === NOW.getFullYear();
     cells.push({ day: d, type: 'current', data, today, key });
   }
@@ -751,7 +796,7 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
           <div style={styles.notifBtn}>🔔<div style={styles.notifDot}></div></div>
         </div>
       </div>
-      <StatsRow />
+      <StatsRow teacher={teacher} />
       <div style={styles.grid2}>
         <div style={styles.gridLeft}>
           <AttendanceCard teacher={teacher} showToast={showToast} onTeacherUpdate={onTeacherUpdate} />
@@ -764,7 +809,7 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
           </div>
           <LeaveCard defaultOpen={openLeave} showToast={showToast} />
         </div>
-        <Calendar />
+        <Calendar teacher={teacher} />
       </div>
     </div>
   );
