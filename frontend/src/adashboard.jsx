@@ -5,6 +5,7 @@ import TeacherTracking from './components/TeacherTracking';
 import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
+import { getFallbackTeachers, saveFallbackTeachers } from './demoData';
 
 function formatCheckin(lastLogin, fallback = '–') {
   if (!lastLogin) return fallback;
@@ -98,11 +99,15 @@ export default function AdminDashboard({ user, onLogout }) {
         }
 
         if (!cancelled) {
-          setTeachers(Array.isArray(data) ? data.map(normaliseTeacher) : []);
+          const nextTeachers = Array.isArray(data) && data.length > 0
+            ? data.map(normaliseTeacher)
+            : getFallbackTeachers().map(normaliseTeacher);
+          setTeachers(nextTeachers);
+          saveFallbackTeachers(nextTeachers);
         }
       } catch {
         if (!cancelled) {
-          setTeachers([]);
+          setTeachers(getFallbackTeachers().map(normaliseTeacher));
         }
       }
     }

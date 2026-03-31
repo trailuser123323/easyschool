@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { apiUrl } from "./api";
+import { upsertFallbackTeacher } from "./demoData";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -350,34 +351,55 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
     setCheckinPhoto(teacher?.loginPhoto || '');
     setCheckoutPhoto(teacher?.checkoutPhoto || '');
     setOnDuty(Boolean(teacher?.onDuty));
+    if (teacher?.role === 'teacher') {
+      upsertFallbackTeacher(teacher);
+    }
   }, [teacher]);
 
   async function persistAttendance(nextFields) {
     if (!teacherId) {
-      throw new Error('Teacher record is missing.');
+      const fallbackTeacher = upsertFallbackTeacher(teacher, nextFields);
+      onTeacherUpdate?.(fallbackTeacher);
+      return fallbackTeacher;
     }
 
-    const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(nextFields),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.message || 'Unable to update attendance.');
-    }
-
-    onTeacherUpdate?.(data);
-
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      if ((parsedUser.id || parsedUser._id) === teacherId) {
-        localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...data }));
+    try {
+      const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextFields),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to update attendance.');
       }
-    }
 
-    return data;
+      upsertFallbackTeacher(teacher, data);
+      onTeacherUpdate?.(data);
+
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        if ((parsedUser.id || parsedUser._id) === teacherId) {
+          localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...data }));
+        }
+      }
+
+      return data;
+    } catch {
+      const fallbackTeacher = upsertFallbackTeacher(teacher, nextFields);
+      onTeacherUpdate?.(fallbackTeacher);
+
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        if ((parsedUser.id || parsedUser._id) === teacherId || parsedUser.email === teacher?.email) {
+          localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...fallbackTeacher }));
+        }
+      }
+
+      return fallbackTeacher;
+    }
   }
 
   async function uploadAttendancePhoto(photo, action) {
@@ -398,16 +420,20 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
     const formData = new FormData();
     formData.append('photo', blob, `${action}-${Date.now()}.jpg`);
 
-    const response = await fetch(apiUrl('/api/auth/teachers/upload'), {
-      method: 'POST',
-      body: formData,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.photoUrl) {
-      throw new Error(data.message || 'Unable to upload photo.');
-    }
+    try {
+      const response = await fetch(apiUrl('/api/auth/teachers/upload'), {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.photoUrl) {
+        throw new Error(data.message || 'Unable to upload photo.');
+      }
 
-    return data.photoUrl;
+      return data.photoUrl;
+    } catch {
+      return photo;
+    }
   }
 
   return (
