@@ -7,6 +7,8 @@ import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
 import { getFallbackTeachers, saveFallbackTeachers } from './demoData';
 
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function formatCheckin(lastLogin, fallback = '–') {
   if (!lastLogin) return fallback;
   return new Date(lastLogin).toLocaleTimeString([], {
@@ -34,6 +36,7 @@ function normaliseTeacher(teacher, index) {
     lastLogin: teacher.lastLogin || null,
     loginPhoto: teacher.loginPhoto || '',
     checkoutPhoto: teacher.checkoutPhoto || '',
+    timetable: Array.isArray(teacher.timetable) ? teacher.timetable : [],
     updatedAt: teacher.updatedAt || 0,
   };
 }
@@ -135,6 +138,84 @@ function AddTeacherPanel({ form, onChange, onSubmit, isSaving }) {
   );
 }
 
+function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
+  const selectedTeacher = teachers.find((teacher) => String(teacher.id) === form.teacherId);
+  const sortedEntries = selectedTeacher?.timetable
+    ? [...selectedTeacher.timetable].sort((a, b) => {
+        const dayDelta = WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day);
+        return dayDelta !== 0 ? dayDelta : a.period.localeCompare(b.period);
+      })
+    : [];
+
+  return (
+    <div className="accounts-container">
+      <div className="accounts-header">
+        <h2>Teacher Timetable</h2>
+        <p>Assign period slots for a selected teacher.</p>
+      </div>
+      <form className="add-teacher-form" onSubmit={onSubmit}>
+        <div className="add-teacher-grid">
+          <label className="form-field">
+            <span>Teacher</span>
+            <select name="teacherId" value={form.teacherId} onChange={onChange} required>
+              <option value="">Select teacher</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name} · {teacher.subject}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Day</span>
+            <select name="day" value={form.day} onChange={onChange} required>
+              {WEEKDAYS.map((day) => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Period / Time</span>
+            <input name="period" value={form.period} onChange={onChange} placeholder="09:00 - 09:45" required />
+          </label>
+          <label className="form-field">
+            <span>Subject</span>
+            <input name="subject" value={form.subject} onChange={onChange} placeholder="Science" required />
+          </label>
+          <label className="form-field">
+            <span>Room</span>
+            <input name="room" value={form.room} onChange={onChange} placeholder="Lab 2 / 9A" />
+          </label>
+        </div>
+        <div className="form-actions">
+          <button className="primary-action" type="submit" disabled={isSaving || teachers.length === 0}>
+            {isSaving ? 'Saving...' : 'Add Timetable Slot'}
+          </button>
+        </div>
+      </form>
+      <div className="timetable-list">
+        {selectedTeacher ? (
+          sortedEntries.length > 0 ? (
+            sortedEntries.map((entry, index) => (
+              <div key={`${entry.day}-${entry.period}-${index}`} className="timetable-row">
+                <div className="timetable-main">
+                  <div className="timetable-day">{entry.day}</div>
+                  <div className="timetable-meta">{entry.period} · {entry.subject}</div>
+                </div>
+                <div className="timetable-room">{entry.room || 'Room not set'}</div>
+              </div>
+            ))
+          ) : (
+            <div className="timetable-empty">No timetable slots added for this teacher yet.</div>
+          )
+        ) : (
+          <div className="timetable-empty">Select a teacher to review and add timetable slots.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TeacherAccounts({ teachers }) {
   return (
     <div className="accounts-container">
@@ -180,6 +261,14 @@ export default function AdminDashboard({ user, onLogout }) {
     className: '',
   });
   const [isSavingTeacher, setIsSavingTeacher] = useState(false);
+  const [timetableForm, setTimetableForm] = useState({
+    teacherId: '',
+    day: 'Monday',
+    period: '',
+    subject: '',
+    room: '',
+  });
+  const [isSavingTimetable, setIsSavingTimetable] = useState(false);
 
   const [announcements, setAnnouncements] = useState([
     { id:1, title:'Annual Sports Day Prep',    body:'All PE staff to coordinate with class teachers for student participation lists.', time:'Today, 9:00 AM', icon:'🏆', type:'info' },
@@ -295,6 +384,7 @@ export default function AdminDashboard({ user, onLogout }) {
       const nextTeachers = [createdTeacher, ...teachers];
       setTeachers(nextTeachers);
       saveFallbackTeachers(nextTeachers);
+      setTimetableForm((current) => ({ ...current, teacherId: String(createdTeacher.id) }));
       showToast('Teacher added ✅');
       setTeacherForm({ name: '', email: '', password: '', subject: '', className: '' });
     } catch (error) {
@@ -312,6 +402,63 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
+  const handleTimetableFormChange = ({ target }) => {
+    const { name, value } = target;
+    setTimetableForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleAddTimetable = async (event) => {
+    event.preventDefault();
+    if (isSavingTimetable) return;
+
+    const teacher = teachers.find((item) => String(item.id) === timetableForm.teacherId);
+    if (!teacher) {
+      showToast('Select a teacher first.');
+      return;
+    }
+
+    const nextEntry = {
+      day: timetableForm.day,
+      period: timetableForm.period.trim(),
+      subject: timetableForm.subject.trim(),
+      room: timetableForm.room.trim(),
+    };
+    const nextTimetable = [...(teacher.timetable || []), nextEntry];
+    const nextTeacher = normaliseTeacher({ ...teacher, timetable: nextTimetable }, teachers.length);
+
+    setIsSavingTimetable(true);
+
+    try {
+      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timetable: nextTimetable }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to save timetable.');
+      }
+
+      const updatedTeacher = normaliseTeacher(data, teachers.length);
+      const nextTeachers = teachers.map((item) =>
+        String(item.id) === String(updatedTeacher.id) ? updatedTeacher : item
+      );
+      setTeachers(nextTeachers);
+      saveFallbackTeachers(nextTeachers);
+      showToast('Timetable slot saved ✅');
+    } catch (error) {
+      const nextTeachers = teachers.map((item) =>
+        String(item.id) === String(teacher.id) ? nextTeacher : item
+      );
+      setTeachers(nextTeachers);
+      saveFallbackTeachers(nextTeachers);
+      showToast(error.message || 'Timetable saved locally ⚠️');
+    } finally {
+      setIsSavingTimetable(false);
+      setTimetableForm((current) => ({ ...current, period: '', subject: '', room: '' }));
+    }
+  };
+
   return (
     <div className="admin-shell">
       <AdminSidebar activeSection={activeSection} onShowSection={setActiveSection} user={user} onLogout={onLogout} />
@@ -325,6 +472,13 @@ export default function AdminDashboard({ user, onLogout }) {
               onChange={handleTeacherFormChange}
               onSubmit={handleAddTeacher}
               isSaving={isSavingTeacher}
+            />
+            <TimetablePanel
+              teachers={teachers}
+              form={timetableForm}
+              onChange={handleTimetableFormChange}
+              onSubmit={handleAddTimetable}
+              isSaving={isSavingTimetable}
             />
             <TeacherAccounts teachers={teachers} />
           </>

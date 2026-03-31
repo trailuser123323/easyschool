@@ -355,7 +355,17 @@
   background: #fff;
 }
 
-.form-field input:focus {
+.form-field select {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 14px;
+  color: #111827;
+  background: #fff;
+}
+
+.form-field input:focus,
+.form-field select:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.16);
@@ -380,6 +390,55 @@
 .primary-action:disabled {
   opacity: 0.7;
   cursor: wait;
+}
+
+.timetable-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.timetable-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.timetable-main {
+  min-width: 0;
+}
+
+.timetable-day {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.timetable-meta {
+  font-size: 13px;
+  color: #4b5563;
+  margin-top: 4px;
+}
+
+.timetable-room {
+  font-size: 13px;
+  color: #4338ca;
+  font-weight: 600;
+}
+
+.timetable-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 16px;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 13px;
 }
 
 .account-row {
@@ -426,6 +485,11 @@
 
   .account-row {
     grid-template-columns: 1fr;
+  }
+
+  .timetable-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

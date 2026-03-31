@@ -21,6 +21,17 @@ const teacherSchema = new mongoose.Schema(
     lastCheckout: { type: Date, default: null },
     loginPhoto: { type: String, default: "" },
     checkoutPhoto: { type: String, default: "" },
+    timetable: {
+      type: [
+        {
+          day: { type: String, default: "" },
+          period: { type: String, default: "" },
+          subject: { type: String, default: "" },
+          room: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
