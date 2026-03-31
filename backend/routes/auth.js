@@ -1,8 +1,38 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
+import { fileURLToPath } from "url";
 import Admin from "../models/Admin.js";
 import Teacher from "../models/Teacher.js";
 
 const router = express.Router();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, "..", "uploads");
+
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const extension = path.extname(file.originalname || "").toLowerCase() || ".jpg";
+    cb(null, `attendance-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype?.startsWith("image/")) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error("Only image uploads are allowed."));
+  },
+});
 
 function formatCheckin(date) {
   return new Date(date).toLocaleTimeString("en-US", {
@@ -165,6 +195,18 @@ router.post("/teachers", async (req, res) => {
   }
 });
 
+router.post("/teachers/upload", upload.single("photo"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "Photo file is required." });
+  }
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  return res.json({
+    photoUrl: `${baseUrl}/uploads/${req.file.filename}`,
+    filename: req.file.filename,
+  });
+});
+
 router.put("/teachers/:id", async (req, res) => {
   try {
     const teacher = await Teacher.findByIdAndUpdate(req.params.id, req.body, {
@@ -181,6 +223,18 @@ router.put("/teachers/:id", async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
   }
+});
+
+router.use((error, _req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    return res.status(400).json({ message: error.message });
+  }
+
+  if (error?.message) {
+    return res.status(400).json({ message: error.message });
+  }
+
+  return next(error);
 });
 
 export default router;
