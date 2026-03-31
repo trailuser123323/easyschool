@@ -28,7 +28,16 @@ function fmtDate(d) {
 }
 
 function normaliseTimetable(timetable) {
-  return Array.isArray(timetable) ? timetable : [];
+  return Array.isArray(timetable)
+    ? timetable.map((entry) => ({
+        date: entry?.date || '',
+        day: entry?.day || '',
+        timeSlot: entry?.timeSlot || entry?.period || '',
+        period: entry?.period || entry?.timeSlot || '',
+        subject: entry?.subject || '',
+        room: entry?.room || '',
+      }))
+    : [];
 }
 
 function dataUrlToFile(dataUrl, filename) {
@@ -719,19 +728,23 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
 }
 
 function TimetableSection({ teacher }) {
-  const timetable = [...normaliseTimetable(teacher?.timetable)].sort((a, b) => {
-    const weekdayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dayDelta = weekdayOrder.indexOf(a.day) - weekdayOrder.indexOf(b.day);
-    return dayDelta !== 0 ? dayDelta : String(a.period).localeCompare(String(b.period));
-  });
+  const initialMonth = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  })();
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
+  const timetable = [...normaliseTimetable(teacher?.timetable)]
+    .filter((entry) => !selectedMonth || (entry.date && entry.date.startsWith(selectedMonth)))
+    .sort((a, b) => `${a.date || ''}-${a.timeSlot || a.period || ''}`.localeCompare(`${b.date || ''}-${b.timeSlot || b.period || ''}`));
 
   return (
     <div>
       <div style={styles.topbar}>
         <div>
           <div style={styles.pageTitle}>Timetable</div>
-          <div style={styles.pageSub}>Weekly class schedule</div>
+          <div style={styles.pageSub}>Monthly class schedule</div>
         </div>
+        <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} style={styles.monthInput} />
       </div>
       <div style={styles.card}>
         <div style={styles.cardHeader}>
@@ -741,10 +754,14 @@ function TimetableSection({ teacher }) {
           {timetable.length > 0 ? (
             <div style={styles.timetableList}>
               {timetable.map((entry, index) => (
-                <div key={`${entry.day}-${entry.period}-${index}`} style={styles.timetableRow}>
+                <div key={`${entry.date || entry.day}-${entry.timeSlot || entry.period}-${index}`} style={styles.timetableRow}>
                   <div>
-                    <div style={styles.timetableDay}>{entry.day}</div>
-                    <div style={styles.timetableMeta}>{entry.period} · {entry.subject}</div>
+                    <div style={styles.timetableDay}>
+                      {entry.date
+                        ? new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })
+                        : entry.day}
+                    </div>
+                    <div style={styles.timetableMeta}>{entry.timeSlot || entry.period} · {entry.subject}</div>
                   </div>
                   <div style={styles.timetableRoom}>{entry.room || 'Room not set'}</div>
                 </div>
@@ -752,7 +769,7 @@ function TimetableSection({ teacher }) {
             </div>
           ) : (
             <div style={styles.timetableEmpty}>
-              Your timetable has not been assigned yet. Ask the admin to add schedule slots.
+              No timetable slots were assigned for this month yet.
             </div>
           )}
         </div>
@@ -837,6 +854,7 @@ const styles = {
   dateChip: { background: '#fff', border: '1px solid #e4e2f0', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: '#6b6b8a' },
   notifBtn: { width: 38, height: 38, borderRadius: 10, background: '#fff', border: '1px solid #e4e2f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, position: 'relative' },
   notifDot: { position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: '50%', background: '#dc2626', border: '1.5px solid #fff' },
+  monthInput: { background: '#fff', border: '1px solid #e4e2f0', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: '#6b6b8a' },
   statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 },
   statCard: { background: '#fff', borderRadius: 16, border: '1px solid #e4e2f0', padding: '18px 20px', position: 'relative', overflow: 'hidden' },
   statLabel: { fontSize: 12, color: '#6b6b8a', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' },

@@ -24,7 +24,9 @@ const teacherSchema = new mongoose.Schema(
     timetable: {
       type: [
         {
+          date: { type: String, default: "" },
           day: { type: String, default: "" },
+          timeSlot: { type: String, default: "" },
           period: { type: String, default: "" },
           subject: { type: String, default: "" },
           room: { type: String, default: "" },
