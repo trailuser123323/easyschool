@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { apiUrl } from "./api";
+import { getFallbackLeaveRequests, saveFallbackLeaveRequests } from "./demoData";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -504,14 +505,16 @@ function AnnouncementList({ items }) {
 }
 
 // ─── LEAVE CARD ────────────────────────────────────────────
-function LeaveCard({ defaultOpen, showToast }) {
+function LeaveCard({ defaultOpen, showToast, teacher }) {
   const [open, setOpen] = useState(defaultOpen || false);
   useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
-  const [leaves, setLeaves] = useState([
-    { type: 'Sick Leave', dates: 'Mar 5, 2025', status: 'Approved', color: '#059669', bg: 'rgba(5,150,105,.1)' },
-    { type: 'Casual Leave', dates: 'Mar 12–13', status: 'Approved', color: '#059669', bg: 'rgba(5,150,105,.1)' },
-    { type: 'Personal Leave', dates: 'Mar 28, 2025', status: 'Pending', color: '#d97706', bg: 'rgba(217,119,6,.1)' },
-  ]);
+  const [leaves, setLeaves] = useState(() => getFallbackLeaveRequests().map((request) => ({
+    type: request.type,
+    dates: request.dates,
+    status: request.status === 'approved' ? 'Approved' : request.status === 'rejected' ? 'Rejected' : 'Pending',
+    color: request.status === 'approved' ? '#059669' : request.status === 'rejected' ? '#dc2626' : '#d97706',
+    bg: request.status === 'approved' ? 'rgba(5,150,105,.1)' : request.status === 'rejected' ? 'rgba(220,38,38,.1)' : 'rgba(217,119,6,.1)',
+  })));
   const [form, setForm] = useState({
     type: 'Sick Leave',
     halfDay: 'Full Day',
@@ -588,8 +591,18 @@ function LeaveCard({ defaultOpen, showToast }) {
                 color: '#d97706',
                 bg: 'rgba(217,119,6,.1)',
               };
+              const nextRequest = {
+                id: `leave-request-${Date.now()}`,
+                name: teacher?.name || 'Teacher',
+                type: nextLeave.type,
+                dates: nextLeave.dates,
+                status: 'pending',
+                initials: teacher?.initials || 'T',
+                color: teacher?.color || '#4f46e5',
+              };
 
               setLeaves((current) => [nextLeave, ...current]);
+              saveFallbackLeaveRequests([nextRequest, ...getFallbackLeaveRequests()]);
               setForm({
                 type: 'Sick Leave',
                 halfDay: 'Full Day',
@@ -757,7 +770,7 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
             </div>
             <AnnouncementList items={announcements} />
           </div>
-          <LeaveCard defaultOpen={openLeave} showToast={showToast} />
+          <LeaveCard defaultOpen={openLeave} showToast={showToast} teacher={teacher} />
         </div>
         <Calendar />
       </div>
@@ -821,7 +834,7 @@ function TimetableSection({ teacher }) {
   );
 }
 
-function LeaveSection({ showToast }) {
+function LeaveSection({ showToast, teacher }) {
   return (
     <div>
       <div style={styles.topbar}>
@@ -830,7 +843,7 @@ function LeaveSection({ showToast }) {
           <div style={styles.pageSub}>Apply for leave and review submitted requests</div>
         </div>
       </div>
-      <LeaveCard defaultOpen showToast={showToast} />
+      <LeaveCard defaultOpen showToast={showToast} teacher={teacher} />
     </div>
   );
 }
@@ -873,7 +886,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
         {activeSection === 'timetable' && <TimetableSection teacher={teacherState} />}
-        {activeSection === 'leave' && <LeaveSection showToast={showToast} />}
+        {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={teacherState} />}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
           <div style={styles.card}><AnnouncementList items={[...announcements, { icon: '📌', iconType: 'info', title: 'Parent-Teacher Meeting — March 29', body: 'All class teachers must be present. Individual schedules will be shared by the coordinator.', time: 'Mar 15 · From: Admin Office' }]} /></div></>

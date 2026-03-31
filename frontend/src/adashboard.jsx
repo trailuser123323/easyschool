@@ -5,6 +5,7 @@ import TeacherTracking from './components/TeacherTracking';
 import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
+import { getFallbackLeaveRequests, saveFallbackLeaveRequests } from './demoData';
 
 function formatMonthValue(value) {
   const date = value ? new Date(`${value}-01T00:00:00`) : new Date();
@@ -248,7 +249,7 @@ export default function AdminDashboard({ user, onLogout }) {
   ]);
 
   const [leaveRequests, setLeaveRequests] = useState([
-    { id:1, name:'Priya Ramesh', type:'Casual Leave', dates:'Apr 1', status:'pending', initials:'PR', color:'#4f46e5' },
+    ...getFallbackLeaveRequests(),
   ]);
 
   const [toast, setToast] = useState({ show: false, msg: '' });
@@ -295,16 +296,24 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const handleApproveLeave = (id) => {
-    setLeaveRequests(prev => prev.map(req => 
-      req.id === id ? { ...req, status: 'approved' } : req
-    ));
+    setLeaveRequests(prev => {
+      const nextRequests = prev.map(req =>
+        req.id === id ? { ...req, status: 'approved' } : req
+      );
+      saveFallbackLeaveRequests(nextRequests);
+      return nextRequests;
+    });
     showToast('Leave request approved ✅');
   };
 
   const handleRejectLeave = (id) => {
-    setLeaveRequests(prev => prev.map(req => 
-      req.id === id ? { ...req, status: 'rejected' } : req
-    ));
+    setLeaveRequests(prev => {
+      const nextRequests = prev.map(req =>
+        req.id === id ? { ...req, status: 'rejected' } : req
+      );
+      saveFallbackLeaveRequests(nextRequests);
+      return nextRequests;
+    });
     showToast('Leave request rejected ❌');
   };
 
