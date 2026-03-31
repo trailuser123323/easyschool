@@ -402,7 +402,18 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
         </div>
         <button
           style={{...styles.dutyBtn, ...(onDuty ? styles.dutyBtnOn : styles.dutyBtnOff)}}
-          onClick={() => { setOnDuty(d => !d); showToast(onDuty ? '🔴' : '✅', onDuty ? 'Duty ended' : 'You are now marked On Duty'); }}>
+          onClick={async () => {
+            const nextOnDuty = !onDuty;
+            setOnDuty(nextOnDuty);
+
+            try {
+              await persistAttendance({ onDuty: nextOnDuty });
+              showToast(nextOnDuty ? '✅' : '🔴', nextOnDuty ? 'You are now marked On Duty' : 'Duty ended');
+            } catch (error) {
+              setOnDuty(!nextOnDuty);
+              showToast('⚠️', error.message || 'Unable to update duty status');
+            }
+          }}>
           <span>{onDuty ? '✅' : '🟢'}</span> {onDuty ? 'On Duty — Active' : 'Mark On Duty'}
         </button>
         <LocationPings />
