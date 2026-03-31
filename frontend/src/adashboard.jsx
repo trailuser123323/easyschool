@@ -5,7 +5,7 @@ import TeacherTracking from './components/TeacherTracking';
 import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
-import { getFallbackLeaveRequests, getFallbackTeachers, saveFallbackLeaveRequests, saveFallbackTeachers } from './demoData';
+import { getFallbackTeachers, saveFallbackTeachers } from './demoData';
 
 function formatMonthValue(value) {
   const date = value ? new Date(`${value}-01T00:00:00`) : new Date();
@@ -67,8 +67,15 @@ function normaliseTeacher(teacher, index) {
     loginPhoto: teacher.loginPhoto || '',
     checkoutPhoto: teacher.checkoutPhoto || '',
     timetable: normaliseTimetableEntries(teacher.timetable),
+    leaveRequests: Array.isArray(teacher.leaveRequests) ? teacher.leaveRequests : [],
     updatedAt: teacher.updatedAt || 0,
   };
+}
+
+function getLeaveRequestMeta(status) {
+  if (status === 'approved') return { label: 'Approved', color: '#059669', bg: 'rgba(5,150,105,.1)' };
+  if (status === 'rejected') return { label: 'Rejected', color: '#dc2626', bg: 'rgba(220,38,38,.1)' };
+  return { label: 'Pending', color: '#d97706', bg: 'rgba(217,119,6,.1)' };
 }
 
 function mergeTeacherRecords(remoteTeachers, fallbackTeachers) {
@@ -310,11 +317,18 @@ export default function AdminDashboard({ user, onLogout }) {
     { id:3, title:'Parent-Teacher Meet — Mar 29', body:'All class teachers must be present. Schedules will be shared by EOD.', time:'Mar 18',         icon:'👨‍👩‍👦', type:'info' },
   ]);
 
-  const [leaveRequests, setLeaveRequests] = useState([
-    ...getFallbackLeaveRequests(),
-  ]);
-
   const [toast, setToast] = useState({ show: false, msg: '' });
+  const leaveRequests = teachers.flatMap((teacher) =>
+    (teacher.leaveRequests || []).map((request) => ({
+      ...request,
+      id: `${teacher.id}:${request.id}`,
+      requestId: request.id,
+      teacherId: teacher.id,
+      name: teacher.name,
+      initials: teacher.initials,
+      color: teacher.color,
+    }))
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -358,26 +372,46 @@ export default function AdminDashboard({ user, onLogout }) {
     setTimeout(() => setToast({ show: false, msg: '' }), 3000);
   };
 
-  const handleApproveLeave = (id) => {
-    setLeaveRequests(prev => {
-      const nextRequests = prev.map(req =>
-        req.id === id ? { ...req, status: 'approved' } : req
-      );
-      saveFallbackLeaveRequests(nextRequests);
-      return nextRequests;
-    });
-    showToast('Leave request approved ✅');
+  const handleApproveLeave = async (request) => {
+    const teacher = teachers.find((item) => String(item.id) === String(request.teacherId));
+    if (!teacher) return;
+    const nextLeaveRequests = (teacher.leaveRequests || []).map((item) =>
+      item.id === request.requestId ? { ...item, status: 'approved' } : item
+    );
+    try {
+      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leaveRequests: nextLeaveRequests }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Unable to approve leave request.');
+      setTeachers((current) => current.map((item) => String(item.id) === String(teacher.id) ? normaliseTeacher(data, 0) : item));
+      showToast('Leave request approved ✅');
+    } catch (error) {
+      showToast(error.message || 'Unable to approve leave request');
+    }
   };
 
-  const handleRejectLeave = (id) => {
-    setLeaveRequests(prev => {
-      const nextRequests = prev.map(req =>
-        req.id === id ? { ...req, status: 'rejected' } : req
-      );
-      saveFallbackLeaveRequests(nextRequests);
-      return nextRequests;
-    });
-    showToast('Leave request rejected ❌');
+  const handleRejectLeave = async (request) => {
+    const teacher = teachers.find((item) => String(item.id) === String(request.teacherId));
+    if (!teacher) return;
+    const nextLeaveRequests = (teacher.leaveRequests || []).map((item) =>
+      item.id === request.requestId ? { ...item, status: 'rejected' } : item
+    );
+    try {
+      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leaveRequests: nextLeaveRequests }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Unable to reject leave request.');
+      setTeachers((current) => current.map((item) => String(item.id) === String(teacher.id) ? normaliseTeacher(data, 0) : item));
+      showToast('Leave request rejected ❌');
+    } catch (error) {
+      showToast(error.message || 'Unable to reject leave request');
+    }
   };
 
   const handleAddAnnouncement = (title, body) => {

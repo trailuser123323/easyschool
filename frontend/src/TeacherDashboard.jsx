@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { apiUrl } from "./api";
 import { upsertFallbackTeacher } from "./demoData";
-import { getFallbackLeaveRequests, saveFallbackLeaveRequests } from "./demoData";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -37,6 +36,10 @@ function normaliseTimetable(timetable) {
         room: entry?.room || '',
       }))
     : [];
+}
+
+function normaliseLeaveRequests(leaveRequests) {
+  return Array.isArray(leaveRequests) ? leaveRequests : [];
 }
 
 function buildAttendanceMap(teacher, now = new Date()) {
@@ -605,16 +608,9 @@ function AnnouncementList({ items }) {
 }
 
 // ─── LEAVE CARD ────────────────────────────────────────────
-function LeaveCard({ defaultOpen, showToast, teacher }) {
+function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
   const [open, setOpen] = useState(defaultOpen || false);
   useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
-  const [leaves, setLeaves] = useState(() => getFallbackLeaveRequests().map((request) => ({
-    type: request.type,
-    dates: request.dates,
-    status: request.status === 'approved' ? 'Approved' : request.status === 'rejected' ? 'Rejected' : 'Pending',
-    color: request.status === 'approved' ? '#059669' : request.status === 'rejected' ? '#dc2626' : '#d97706',
-    bg: request.status === 'approved' ? 'rgba(5,150,105,.1)' : request.status === 'rejected' ? 'rgba(220,38,38,.1)' : 'rgba(217,119,6,.1)',
-  })));
   const [form, setForm] = useState({
     type: 'Sick Leave',
     halfDay: 'Full Day',
@@ -630,6 +626,14 @@ function LeaveCard({ defaultOpen, showToast, teacher }) {
     const toLabel = new Date(`${toDate}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
     return `${fromLabel} – ${toLabel}`;
   }
+
+  const leaves = normaliseLeaveRequests(teacher?.leaveRequests).map((request) => ({
+    type: request.type,
+    dates: request.dates,
+    status: request.status === 'approved' ? 'Approved' : request.status === 'rejected' ? 'Rejected' : 'Pending',
+    color: request.status === 'approved' ? '#059669' : request.status === 'rejected' ? '#dc2626' : '#d97706',
+    bg: request.status === 'approved' ? 'rgba(5,150,105,.1)' : request.status === 'rejected' ? 'rgba(220,38,38,.1)' : 'rgba(217,119,6,.1)',
+  }));
 
   return (
     <div style={styles.card}>
@@ -678,7 +682,7 @@ function LeaveCard({ defaultOpen, showToast, teacher }) {
               <label style={styles.fglLabel}>Document (optional)</label>
               <input type="file" accept=".pdf,.jpg,.png" style={styles.fglInput} />
             </div>
-            <button style={styles.submitBtn} onClick={() => {
+            <button style={styles.submitBtn} onClick={async () => {
               if (!form.fromDate || !form.reason.trim()) {
                 showToast('⚠️', 'Add dates and a reason before submitting');
                 return;
@@ -693,25 +697,36 @@ function LeaveCard({ defaultOpen, showToast, teacher }) {
               };
               const nextRequest = {
                 id: `leave-request-${Date.now()}`,
-                name: teacher?.name || 'Teacher',
                 type: nextLeave.type,
                 dates: nextLeave.dates,
                 status: 'pending',
-                initials: teacher?.initials || 'T',
-                color: teacher?.color || '#4f46e5',
+                reason: form.reason.trim(),
+                createdAtLabel: 'Just now',
               };
-
-              setLeaves((current) => [nextLeave, ...current]);
-              saveFallbackLeaveRequests([nextRequest, ...getFallbackLeaveRequests()]);
-              setForm({
-                type: 'Sick Leave',
-                halfDay: 'Full Day',
-                fromDate: '',
-                toDate: '',
-                reason: '',
-              });
-              showToast('📝', 'Leave request submitted successfully');
-              setOpen(false);
+              const nextLeaveRequests = [nextRequest, ...normaliseLeaveRequests(teacher?.leaveRequests)];
+              try {
+                const response = await fetch(apiUrl(`/api/auth/teachers/${teacher?.id || teacher?._id}`), {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ leaveRequests: nextLeaveRequests }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                  throw new Error(data.message || 'Unable to submit leave request.');
+                }
+                onTeacherUpdate?.(data);
+                setForm({
+                  type: 'Sick Leave',
+                  halfDay: 'Full Day',
+                  fromDate: '',
+                  toDate: '',
+                  reason: '',
+                });
+                showToast('📝', 'Leave request submitted successfully');
+                setOpen(false);
+              } catch (error) {
+                showToast('⚠️', error.message || 'Unable to submit leave request');
+              }
             }}>
               Submit Leave Request
             </button>
@@ -871,7 +886,7 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
             </div>
             <AnnouncementList items={announcements} />
           </div>
-          <LeaveCard defaultOpen={openLeave} showToast={showToast} teacher={teacher} />
+          <LeaveCard defaultOpen={openLeave} showToast={showToast} teacher={teacher} onTeacherUpdate={onTeacherUpdate} />
         </div>
         <Calendar teacher={teacher} />
       </div>
@@ -935,7 +950,7 @@ function TimetableSection({ teacher }) {
   );
 }
 
-function LeaveSection({ showToast, teacher }) {
+function LeaveSection({ showToast, teacher, onTeacherUpdate }) {
   return (
     <div>
       <div style={styles.topbar}>
@@ -944,7 +959,7 @@ function LeaveSection({ showToast, teacher }) {
           <div style={styles.pageSub}>Apply for leave and review submitted requests</div>
         </div>
       </div>
-      <LeaveCard defaultOpen showToast={showToast} teacher={teacher} />
+      <LeaveCard defaultOpen showToast={showToast} teacher={teacher} onTeacherUpdate={onTeacherUpdate} />
     </div>
   );
 }
@@ -987,7 +1002,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
         {activeSection === 'timetable' && <TimetableSection teacher={teacherState} />}
-        {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={teacherState} />}
+        {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={teacherState} onTeacherUpdate={setTeacherState} />}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
           <div style={styles.card}><AnnouncementList items={[...announcements, { icon: '📌', iconType: 'info', title: 'Parent-Teacher Meeting — March 29', body: 'All class teachers must be present. Individual schedules will be shared by the coordinator.', time: 'Mar 15 · From: Admin Office' }]} /></div></>
