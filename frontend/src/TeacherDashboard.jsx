@@ -154,8 +154,8 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
-  const streamRef = useRef(null);
   const [photo, setPhoto] = useState(initialPhoto || "");
+  const [cameraStream, setCameraStream] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -169,6 +169,9 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
     let cancelled = false;
 
     async function startCamera() {
+      setCameraReady(false);
+      setCameraError("");
+
       if (photo || !navigator.mediaDevices?.getUserMedia) {
         if (!navigator.mediaDevices?.getUserMedia) {
           setCameraError("Camera access is not supported in this browser.");
@@ -188,12 +191,7 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
           return;
         }
 
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setCameraReady(true);
-          setCameraError("");
-        }
+        setCameraStream(stream);
       } catch (error) {
         setCameraError("Camera permission was blocked. Use Upload instead.");
       } finally {
@@ -207,12 +205,23 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
 
     return () => {
       cancelled = true;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
     };
   }, [photo]);
+
+  useEffect(() => {
+    if (!videoRef.current || !cameraStream || photo) return;
+
+    videoRef.current.srcObject = cameraStream;
+    videoRef.current.play?.().catch(() => {});
+  }, [cameraStream, photo]);
+
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [cameraStream]);
 
   function handleFileChange(event) {
     const file = event.target.files?.[0];
@@ -261,10 +270,23 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
         <div style={styles.cameraPreview}>
           {photo ? (
             <img src={photo} alt={`${action} capture`} style={styles.cameraImage} />
-          ) : cameraReady ? (
-            <video ref={videoRef} autoPlay playsInline muted style={styles.cameraImage} />
           ) : (
-            <div style={styles.cameraPlaceholder}>{reading || cameraLoading ? '⏳' : '📷'}</div>
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                onLoadedMetadata={() => setCameraReady(true)}
+                style={{
+                  ...styles.cameraImage,
+                  ...(cameraReady ? {} : styles.cameraImageHidden),
+                }}
+              />
+              {!cameraReady && (
+                <div style={styles.cameraPlaceholder}>{reading || cameraLoading ? '⏳' : '📷'}</div>
+              )}
+            </>
           )}
         </div>
         {cameraError && <div style={styles.cameraError}>{cameraError}</div>}
@@ -788,8 +810,9 @@ const styles = {
   modal: { background: '#fff', borderRadius: 16, padding: 28, width: 360, maxWidth: '94vw', position: 'relative' },
   modalTitle: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 600, marginBottom: 8 },
   modalSub: { fontSize: 13, color: '#6b6b8a', marginBottom: 20 },
-  cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 },
+  cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, position: 'relative', overflow: 'hidden' },
   cameraImage: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 },
+  cameraImageHidden: { position: 'absolute', opacity: 0, pointerEvents: 'none' },
   cameraPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 48 },
   cameraError: { fontSize: 12, color: '#dc2626', textAlign: 'center', marginTop: -6, marginBottom: 12 },
   cameraStatus: { fontSize: 12, color: '#6b6b8a', textAlign: 'center', marginTop: -6, marginBottom: 12 },
