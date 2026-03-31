@@ -7,7 +7,37 @@ import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
 import { getFallbackTeachers, saveFallbackTeachers } from './demoData';
 
-const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function formatMonthValue(value) {
+  const date = value ? new Date(`${value}-01T00:00:00`) : new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatEntryDay(entry) {
+  if (entry.date) {
+    return new Date(`${entry.date}T00:00:00`).toLocaleDateString([], {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+    });
+  }
+
+  return entry.day || 'Unscheduled';
+}
+
+function normaliseTimetableEntries(timetable) {
+  return Array.isArray(timetable)
+    ? timetable
+        .map((entry) => ({
+          date: entry?.date || '',
+          day: entry?.day || '',
+          timeSlot: entry?.timeSlot || entry?.period || '',
+          period: entry?.period || entry?.timeSlot || '',
+          subject: entry?.subject || '',
+          room: entry?.room || '',
+        }))
+        .filter((entry) => entry.date || entry.day || entry.timeSlot || entry.subject || entry.room)
+    : [];
+}
 
 function formatCheckin(lastLogin, fallback = '–') {
   if (!lastLogin) return fallback;
@@ -36,7 +66,7 @@ function normaliseTeacher(teacher, index) {
     lastLogin: teacher.lastLogin || null,
     loginPhoto: teacher.loginPhoto || '',
     checkoutPhoto: teacher.checkoutPhoto || '',
-    timetable: Array.isArray(teacher.timetable) ? teacher.timetable : [],
+    timetable: normaliseTimetableEntries(teacher.timetable),
     updatedAt: teacher.updatedAt || 0,
   };
 }
@@ -141,17 +171,20 @@ function AddTeacherPanel({ form, onChange, onSubmit, isSaving }) {
 function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
   const selectedTeacher = teachers.find((teacher) => String(teacher.id) === form.teacherId);
   const sortedEntries = selectedTeacher?.timetable
-    ? [...selectedTeacher.timetable].sort((a, b) => {
-        const dayDelta = WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day);
-        return dayDelta !== 0 ? dayDelta : a.period.localeCompare(b.period);
-      })
+    ? [...selectedTeacher.timetable]
+        .filter((entry) => !form.month || (entry.date && entry.date.startsWith(form.month)))
+        .sort((a, b) => {
+          const left = `${a.date || ''}-${a.timeSlot || a.period || ''}`;
+          const right = `${b.date || ''}-${b.timeSlot || b.period || ''}`;
+          return left.localeCompare(right);
+        })
     : [];
 
   return (
     <div className="accounts-container">
       <div className="accounts-header">
-        <h2>Teacher Timetable</h2>
-        <p>Assign period slots for a selected teacher.</p>
+        <h2>Monthly Timetables</h2>
+        <p>Assign dated timetable slots for a selected teacher and month.</p>
       </div>
       <form className="add-teacher-form" onSubmit={onSubmit}>
         <div className="add-teacher-grid">
@@ -167,16 +200,16 @@ function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
             </select>
           </label>
           <label className="form-field">
-            <span>Day</span>
-            <select name="day" value={form.day} onChange={onChange} required>
-              {WEEKDAYS.map((day) => (
-                <option key={day} value={day}>{day}</option>
-              ))}
-            </select>
+            <span>Month</span>
+            <input name="month" type="month" value={form.month} onChange={onChange} required />
           </label>
           <label className="form-field">
-            <span>Period / Time</span>
-            <input name="period" value={form.period} onChange={onChange} placeholder="09:00 - 09:45" required />
+            <span>Date</span>
+            <input name="date" type="date" value={form.date} onChange={onChange} required />
+          </label>
+          <label className="form-field">
+            <span>Time Slot</span>
+            <input name="timeSlot" value={form.timeSlot} onChange={onChange} placeholder="09:00 - 09:45" required />
           </label>
           <label className="form-field">
             <span>Subject</span>
@@ -197,19 +230,19 @@ function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
         {selectedTeacher ? (
           sortedEntries.length > 0 ? (
             sortedEntries.map((entry, index) => (
-              <div key={`${entry.day}-${entry.period}-${index}`} className="timetable-row">
+              <div key={`${entry.date || entry.day}-${entry.timeSlot || entry.period}-${index}`} className="timetable-row">
                 <div className="timetable-main">
-                  <div className="timetable-day">{entry.day}</div>
-                  <div className="timetable-meta">{entry.period} · {entry.subject}</div>
+                  <div className="timetable-day">{formatEntryDay(entry)}</div>
+                  <div className="timetable-meta">{entry.timeSlot || entry.period} · {entry.subject}</div>
                 </div>
                 <div className="timetable-room">{entry.room || 'Room not set'}</div>
               </div>
             ))
           ) : (
-            <div className="timetable-empty">No timetable slots added for this teacher yet.</div>
+            <div className="timetable-empty">No timetable slots added for the selected month yet.</div>
           )
         ) : (
-          <div className="timetable-empty">Select a teacher to review and add timetable slots.</div>
+          <div className="timetable-empty">Select a teacher to review and add monthly timetable slots.</div>
         )}
       </div>
     </div>
@@ -263,8 +296,9 @@ export default function AdminDashboard({ user, onLogout }) {
   const [isSavingTeacher, setIsSavingTeacher] = useState(false);
   const [timetableForm, setTimetableForm] = useState({
     teacherId: '',
-    day: 'Monday',
-    period: '',
+    month: formatMonthValue(),
+    date: '',
+    timeSlot: '',
     subject: '',
     room: '',
   });
@@ -384,7 +418,10 @@ export default function AdminDashboard({ user, onLogout }) {
       const nextTeachers = [createdTeacher, ...teachers];
       setTeachers(nextTeachers);
       saveFallbackTeachers(nextTeachers);
-      setTimetableForm((current) => ({ ...current, teacherId: String(createdTeacher.id) }));
+      setTimetableForm((current) => ({
+        ...current,
+        teacherId: String(createdTeacher.id),
+      }));
       showToast('Teacher added ✅');
       setTeacherForm({ name: '', email: '', password: '', subject: '', className: '' });
     } catch (error) {
@@ -418,8 +455,10 @@ export default function AdminDashboard({ user, onLogout }) {
     }
 
     const nextEntry = {
-      day: timetableForm.day,
-      period: timetableForm.period.trim(),
+      date: timetableForm.date,
+      day: new Date(`${timetableForm.date}T00:00:00`).toLocaleDateString([], { weekday: 'long' }),
+      timeSlot: timetableForm.timeSlot.trim(),
+      period: timetableForm.timeSlot.trim(),
       subject: timetableForm.subject.trim(),
       room: timetableForm.room.trim(),
     };
@@ -455,7 +494,7 @@ export default function AdminDashboard({ user, onLogout }) {
       showToast(error.message || 'Timetable saved locally ⚠️');
     } finally {
       setIsSavingTimetable(false);
-      setTimetableForm((current) => ({ ...current, period: '', subject: '', room: '' }));
+      setTimetableForm((current) => ({ ...current, date: '', timeSlot: '', subject: '', room: '' }));
     }
   };
 
@@ -473,15 +512,17 @@ export default function AdminDashboard({ user, onLogout }) {
               onSubmit={handleAddTeacher}
               isSaving={isSavingTeacher}
             />
-            <TimetablePanel
-              teachers={teachers}
-              form={timetableForm}
-              onChange={handleTimetableFormChange}
-              onSubmit={handleAddTimetable}
-              isSaving={isSavingTimetable}
-            />
             <TeacherAccounts teachers={teachers} />
           </>
+        )}
+        {activeSection === 'timetables' && (
+          <TimetablePanel
+            teachers={teachers}
+            form={timetableForm}
+            onChange={handleTimetableFormChange}
+            onSubmit={handleAddTimetable}
+            isSaving={isSavingTimetable}
+          />
         )}
         {activeSection === 'notices' && <NoticeBoard announcements={announcements} onAddAnnouncement={handleAddAnnouncement} />}
         {activeSection === 'leaves' && <LeaveRequests requests={leaveRequests} onApprove={handleApproveLeave} onReject={handleRejectLeave} />}

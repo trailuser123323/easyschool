@@ -29,6 +29,12 @@ export default function AdminSidebar({ activeSection, onShowSection, user, onLog
           👩‍🏫 Teachers
         </button>
         <button
+          className={`admin-nav-item ${activeSection === 'timetables' ? 'active' : ''}`}
+          onClick={() => onShowSection('timetables')}
+        >
+          🗓️ Timetables
+        </button>
+        <button
           className={`admin-nav-item ${activeSection === 'notices' ? 'active' : ''}`}
           onClick={() => onShowSection('notices')}
         >
