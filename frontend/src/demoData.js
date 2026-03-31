@@ -21,6 +21,7 @@ const DEFAULT_TEACHERS = [
     checkoutPhoto: "",
     lastLogin: null,
     lastCheckout: null,
+    updatedAt: 0,
   },
 ];
 
@@ -57,7 +58,7 @@ export function upsertFallbackTeacher(target, updates = {}) {
   const teachers = getFallbackTeachers();
   const index = teachers.findIndex((teacher) => teacherMatches(teacher, target));
   const baseTeacher = index >= 0 ? teachers[index] : { ...target };
-  const nextTeacher = { ...baseTeacher, ...updates };
+  const nextTeacher = { ...baseTeacher, ...updates, updatedAt: Date.now() };
 
   if (index >= 0) {
     teachers[index] = nextTeacher;

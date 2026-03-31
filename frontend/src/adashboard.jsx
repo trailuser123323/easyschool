@@ -34,7 +34,34 @@ function normaliseTeacher(teacher, index) {
     lastLogin: teacher.lastLogin || null,
     loginPhoto: teacher.loginPhoto || '',
     checkoutPhoto: teacher.checkoutPhoto || '',
+    updatedAt: teacher.updatedAt || 0,
   };
+}
+
+function mergeTeacherRecords(remoteTeachers, fallbackTeachers) {
+  const fallbackByEmail = new Map(
+    fallbackTeachers
+      .filter((teacher) => teacher?.email)
+      .map((teacher) => [teacher.email, teacher])
+  );
+
+  const merged = remoteTeachers.map((teacher) => {
+    const fallbackTeacher = fallbackByEmail.get(teacher.email);
+    if (!fallbackTeacher) return teacher;
+
+    return fallbackTeacher.updatedAt > (teacher.updatedAt || 0)
+      ? { ...teacher, ...fallbackTeacher }
+      : teacher;
+  });
+
+  fallbackTeachers.forEach((teacher) => {
+    if (!teacher?.email) return;
+    if (!merged.some((item) => item.email === teacher.email)) {
+      merged.push(teacher);
+    }
+  });
+
+  return merged;
 }
 
 function TeacherAccounts({ teachers }) {
@@ -100,7 +127,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
         if (!cancelled) {
           const nextTeachers = Array.isArray(data) && data.length > 0
-            ? data.map(normaliseTeacher)
+            ? mergeTeacherRecords(data.map(normaliseTeacher), getFallbackTeachers().map(normaliseTeacher))
             : getFallbackTeachers().map(normaliseTeacher);
           setTeachers(nextTeachers);
           saveFallbackTeachers(nextTeachers);
