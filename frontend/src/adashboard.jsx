@@ -113,6 +113,7 @@ export default function AdminDashboard({ user, onLogout }) {
       <AdminSidebar activeSection={activeSection} onShowSection={setActiveSection} user={user} onLogout={onLogout} />
       <div className="admin-content-wrapper">
         {activeSection === 'tracking' && <TeacherTracking teachers={teachers} />}
+        {activeSection === 'teachers' && <TeacherTracking teachers={teachers} />}
         {activeSection === 'notices' && <NoticeBoard announcements={announcements} onAddAnnouncement={handleAddAnnouncement} />}
         {activeSection === 'leaves' && <LeaveRequests requests={leaveRequests} onApprove={handleApproveLeave} onReject={handleRejectLeave} />}
       </div>
