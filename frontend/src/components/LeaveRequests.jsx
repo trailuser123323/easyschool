@@ -29,13 +29,13 @@ export default function LeaveRequests({ requests, onApprove, onReject }) {
                 <div className="leave-actions">
                   <button 
                     className="btn-approve"
-                    onClick={() => onApprove(request.id)}
+                    onClick={() => onApprove(request)}
                   >
                     ✓ Approve
                   </button>
                   <button 
                     className="btn-reject"
-                    onClick={() => onReject(request.id)}
+                    onClick={() => onReject(request)}
                   >
                     ✕ Reject
                   </button>

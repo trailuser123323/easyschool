@@ -34,6 +34,19 @@ const teacherSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    leaveRequests: {
+      type: [
+        {
+          id: { type: String, default: "" },
+          type: { type: String, default: "" },
+          dates: { type: String, default: "" },
+          status: { type: String, default: "pending" },
+          reason: { type: String, default: "" },
+          createdAtLabel: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
