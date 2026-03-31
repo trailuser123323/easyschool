@@ -64,6 +64,77 @@ function mergeTeacherRecords(remoteTeachers, fallbackTeachers) {
   return merged;
 }
 
+function buildInitials(name = '') {
+  return name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('') || 'T';
+}
+
+function createTeacherRecord(form, index = 0) {
+  return normaliseTeacher({
+    id: `teacher-${Date.now()}-${index}`,
+    name: form.name.trim(),
+    email: form.email.trim().toLowerCase(),
+    role: 'teacher',
+    subject: form.subject.trim() || 'General',
+    class: form.className.trim() || '–',
+    initials: buildInitials(form.name),
+    color: '#4f46e5',
+    status: 'absent',
+    checkin: '–',
+    checkout: '–',
+    onDuty: false,
+    absent: 0,
+    leave: 0,
+    rate: '0%',
+    updatedAt: Date.now(),
+  });
+}
+
+function AddTeacherPanel({ form, onChange, onSubmit, isSaving }) {
+  return (
+    <div className="accounts-container">
+      <div className="accounts-header">
+        <h2>Add Teacher</h2>
+        <p>Create a teacher login directly from the admin dashboard.</p>
+      </div>
+      <form className="add-teacher-form" onSubmit={onSubmit}>
+        <div className="add-teacher-grid">
+          <label className="form-field">
+            <span>Name</span>
+            <input name="name" value={form.name} onChange={onChange} placeholder="Priya Ramesh" required />
+          </label>
+          <label className="form-field">
+            <span>Email</span>
+            <input name="email" type="email" value={form.email} onChange={onChange} placeholder="teacher@school.com" required />
+          </label>
+          <label className="form-field">
+            <span>Password</span>
+            <input name="password" value={form.password} onChange={onChange} placeholder="Set login password" required />
+          </label>
+          <label className="form-field">
+            <span>Subject</span>
+            <input name="subject" value={form.subject} onChange={onChange} placeholder="Science" />
+          </label>
+          <label className="form-field">
+            <span>Class</span>
+            <input name="className" value={form.className} onChange={onChange} placeholder="9A" />
+          </label>
+        </div>
+        <div className="form-actions">
+          <button className="primary-action" type="submit" disabled={isSaving}>
+            {isSaving ? 'Adding...' : 'Add Teacher'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function TeacherAccounts({ teachers }) {
   return (
     <div className="accounts-container">
@@ -101,6 +172,14 @@ function TeacherAccounts({ teachers }) {
 export default function AdminDashboard({ user, onLogout }) {
   const [activeSection, setActiveSection] = useState('tracking');
   const [teachers, setTeachers] = useState([]);
+  const [teacherForm, setTeacherForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    subject: '',
+    className: '',
+  });
+  const [isSavingTeacher, setIsSavingTeacher] = useState(false);
 
   const [announcements, setAnnouncements] = useState([
     { id:1, title:'Annual Sports Day Prep',    body:'All PE staff to coordinate with class teachers for student participation lists.', time:'Today, 9:00 AM', icon:'🏆', type:'info' },
@@ -183,6 +262,56 @@ export default function AdminDashboard({ user, onLogout }) {
     showToast('Announcement posted ✅');
   };
 
+  const handleTeacherFormChange = ({ target }) => {
+    const { name, value } = target;
+    setTeacherForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleAddTeacher = async (event) => {
+    event.preventDefault();
+    if (isSavingTeacher) return;
+
+    const nextTeacher = createTeacherRecord(teacherForm, teachers.length);
+    setIsSavingTeacher(true);
+
+    try {
+      const response = await fetch(apiUrl('/api/auth/teachers'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: teacherForm.name.trim(),
+          email: teacherForm.email.trim().toLowerCase(),
+          password: teacherForm.password.trim(),
+          subject: teacherForm.subject.trim(),
+          class: teacherForm.className.trim(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to add teacher.');
+      }
+
+      const createdTeacher = normaliseTeacher(data, teachers.length);
+      const nextTeachers = [createdTeacher, ...teachers];
+      setTeachers(nextTeachers);
+      saveFallbackTeachers(nextTeachers);
+      showToast('Teacher added ✅');
+      setTeacherForm({ name: '', email: '', password: '', subject: '', className: '' });
+    } catch (error) {
+      if (teachers.some((teacher) => teacher.email === nextTeacher.email)) {
+        showToast(error.message || 'Unable to add teacher.');
+      } else {
+        const nextTeachers = [nextTeacher, ...teachers];
+        setTeachers(nextTeachers);
+        saveFallbackTeachers(nextTeachers);
+        showToast('Teacher added locally ⚠️');
+        setTeacherForm({ name: '', email: '', password: '', subject: '', className: '' });
+      }
+    } finally {
+      setIsSavingTeacher(false);
+    }
+  };
+
   return (
     <div className="admin-shell">
       <AdminSidebar activeSection={activeSection} onShowSection={setActiveSection} user={user} onLogout={onLogout} />
@@ -191,6 +320,12 @@ export default function AdminDashboard({ user, onLogout }) {
         {activeSection === 'teachers' && (
           <>
             <TeacherTracking teachers={teachers} />
+            <AddTeacherPanel
+              form={teacherForm}
+              onChange={handleTeacherFormChange}
+              onSubmit={handleAddTeacher}
+              isSaving={isSavingTeacher}
+            />
             <TeacherAccounts teachers={teachers} />
           </>
         )}

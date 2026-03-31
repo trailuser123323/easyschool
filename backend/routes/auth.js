@@ -48,6 +48,17 @@ function serializeTeacher(teacher) {
   return userData;
 }
 
+function buildInitials(name = "") {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) return "T";
+  return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "T";
+}
+
 async function seedIfEmpty() {
   const adminCount = await Admin.countDocuments();
   if (adminCount === 0) {
@@ -131,6 +142,55 @@ router.get("/teachers", async (_req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.post("/teachers", async (req, res) => {
+  const {
+    name,
+    email,
+    password,
+    subject = "",
+    class: className = "",
+    color = "#4f46e5",
+  } = req.body || {};
+
+  const trimmedName = name?.trim();
+  const normalizedEmail = email?.trim().toLowerCase();
+  const trimmedPassword = password?.trim();
+
+  if (!trimmedName || !normalizedEmail || !trimmedPassword) {
+    return res.status(400).json({ message: "Name, email, and password are required." });
+  }
+
+  try {
+    const existingTeacher = await Teacher.findOne({ email: normalizedEmail });
+    if (existingTeacher) {
+      return res.status(409).json({ message: "A teacher with this email already exists." });
+    }
+
+    const teacher = await Teacher.create({
+      name: trimmedName,
+      email: normalizedEmail,
+      password: trimmedPassword,
+      role: "teacher",
+      subject: subject?.trim() || "General",
+      class: className?.trim() || "–",
+      initials: buildInitials(trimmedName),
+      color,
+      status: "absent",
+      checkin: "–",
+      checkout: "–",
+      onDuty: false,
+      absent: 0,
+      leave: 0,
+      rate: "0%",
+    });
+
+    return res.status(201).json(serializeTeacher(teacher));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
