@@ -39,6 +39,36 @@ function resolvePhotoUrl(photoUrl) {
   return apiUrl(`/${photoUrl}`);
 }
 
+function normaliseTeacherSession(currentUser, nextTeacher) {
+  return {
+    token: currentUser?.token || localStorage.getItem("token") || "",
+    role: "teacher",
+    id: nextTeacher?.id ?? nextTeacher?._id ?? currentUser?.id ?? currentUser?._id ?? "",
+    _id: nextTeacher?._id ?? nextTeacher?.id ?? currentUser?._id ?? currentUser?.id ?? "",
+    name: nextTeacher?.name || currentUser?.name || "Teacher",
+    email: nextTeacher?.email || currentUser?.email || "",
+    initials: nextTeacher?.initials || currentUser?.initials || "T",
+    subject: nextTeacher?.subject || currentUser?.subject || "General",
+    class: nextTeacher?.class || nextTeacher?.className || currentUser?.class || currentUser?.className || "–",
+    status: nextTeacher?.status || currentUser?.status || "absent",
+    checkin: nextTeacher?.checkin || currentUser?.checkin || "–",
+    checkout: nextTeacher?.checkout || currentUser?.checkout || "–",
+    onDuty: Boolean(nextTeacher?.onDuty ?? currentUser?.onDuty),
+    absent: nextTeacher?.absent ?? currentUser?.absent ?? 0,
+    leave: nextTeacher?.leave ?? currentUser?.leave ?? 0,
+    rate: nextTeacher?.rate || currentUser?.rate || "0%",
+    color: nextTeacher?.color || currentUser?.color || "#4f46e5",
+    lastLogin: nextTeacher?.lastLogin || currentUser?.lastLogin || null,
+    lastCheckout: nextTeacher?.lastCheckout || currentUser?.lastCheckout || null,
+    loginPhoto: nextTeacher?.loginPhoto || "",
+    checkoutPhoto: nextTeacher?.checkoutPhoto || "",
+    timetable: Array.isArray(nextTeacher?.timetable) ? nextTeacher.timetable : Array.isArray(currentUser?.timetable) ? currentUser.timetable : [],
+    attendanceRecords: Array.isArray(nextTeacher?.attendanceRecords) ? nextTeacher.attendanceRecords : Array.isArray(currentUser?.attendanceRecords) ? currentUser.attendanceRecords : [],
+    leaveRequests: Array.isArray(nextTeacher?.leaveRequests) ? nextTeacher.leaveRequests : Array.isArray(currentUser?.leaveRequests) ? currentUser.leaveRequests : [],
+    preferences: nextTeacher?.preferences || currentUser?.preferences || {},
+  };
+}
+
 function currentMonthValue() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -1140,12 +1170,11 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   function syncTeacherState(nextTeacher) {
     setTeacherState(nextTeacher);
     const storedUser = localStorage.getItem("user");
-    if (!storedUser) return;
     try {
-      const parsedUser = JSON.parse(storedUser);
-      localStorage.setItem("user", JSON.stringify({ ...parsedUser, ...nextTeacher }));
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      localStorage.setItem("user", JSON.stringify(normaliseTeacherSession(parsedUser, nextTeacher)));
     } catch {
-      localStorage.setItem("user", JSON.stringify(nextTeacher));
+      localStorage.setItem("user", JSON.stringify(normaliseTeacherSession(null, nextTeacher)));
     }
   }
 
