@@ -834,9 +834,11 @@ function TimetableSection({ teacher }) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   })();
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
-  const timetable = [...normaliseTimetable(teacher?.timetable)]
-    .filter((entry) => !selectedMonth || (entry.date && entry.date.startsWith(selectedMonth)))
+  const allTimetable = [...normaliseTimetable(teacher?.timetable)]
     .sort((a, b) => `${a.date || ''}-${a.timeSlot || a.period || ''}`.localeCompare(`${b.date || ''}-${b.timeSlot || b.period || ''}`));
+  const monthTimetable = allTimetable
+    .filter((entry) => !selectedMonth || (entry.date && entry.date.startsWith(selectedMonth)))
+  const timetable = monthTimetable.length > 0 ? monthTimetable : allTimetable;
 
   return (
     <div>
@@ -852,6 +854,9 @@ function TimetableSection({ teacher }) {
           <div style={styles.cardTitle}>Assigned Periods</div>
         </div>
         <div style={styles.cardBody}>
+          {monthTimetable.length === 0 && allTimetable.length > 0 && (
+            <div style={styles.timetableHint}>No entries for the selected month. Showing all assigned timetable entries instead.</div>
+          )}
           {timetable.length > 0 ? (
             <div style={styles.timetableList}>
               {timetable.map((entry, index) => (
@@ -879,6 +884,20 @@ function TimetableSection({ teacher }) {
   );
 }
 
+function LeaveSection({ showToast }) {
+  return (
+    <div>
+      <div style={styles.topbar}>
+        <div>
+          <div style={styles.pageTitle}>Leave Requests</div>
+          <div style={styles.pageSub}>Apply for leave and review submitted requests</div>
+        </div>
+      </div>
+      <LeaveCard defaultOpen showToast={showToast} />
+    </div>
+  );
+}
+
 // ─── APP ───────────────────────────────────────────────────
 export default function TeacherDashboard({ teacher, onLogout }) {
   const [teacherState, setTeacherState] = useState(teacher);
@@ -896,9 +915,8 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   }
 
   function handleApplyLeave() {
-    setActiveSection('dashboard');
+    setActiveSection('leave');
     setOpenLeave(true);
-    setTimeout(() => setOpenLeave(false), 100);
   }
 
   return (
@@ -918,6 +936,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
         {activeSection === 'timetable' && <TimetableSection teacher={teacherState} />}
+        {activeSection === 'leave' && <LeaveSection showToast={showToast} />}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
           <div style={styles.card}><AnnouncementList items={[...announcements, { icon: '📌', iconType: 'info', title: 'Parent-Teacher Meeting — March 29', body: 'All class teachers must be present. Individual schedules will be shared by the coordinator.', time: 'Mar 15 · From: Admin Office' }]} /></div></>
@@ -1024,6 +1043,7 @@ const styles = {
   timetableMeta: { marginTop: 4, fontSize: 13, color: '#6b6b8a' },
   timetableRoom: { fontSize: 13, fontWeight: 600, color: '#4f46e5' },
   timetableEmpty: { border: '1px dashed #d8d4eb', borderRadius: 12, padding: '18px', background: '#f7f6fd', color: '#6b6b8a', fontSize: 13 },
+  timetableHint: { marginBottom: 14, borderRadius: 10, padding: '10px 12px', background: '#eef2ff', color: '#4338ca', fontSize: 12, fontWeight: 600 },
   modalClose: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b6b8a' },
   emptyState: { textAlign: 'center', padding: '80px 40px' },
   emptyTitle: { fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: '#1a1a2e', marginBottom: 10 },
