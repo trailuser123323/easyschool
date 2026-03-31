@@ -18,6 +18,7 @@ function normaliseTeacher(teacher, index) {
   return {
     id: teacher.id ?? teacher._id ?? index + 1,
     name: teacher.name,
+    email: teacher.email || '',
     initials: teacher.initials || 'T',
     subject: teacher.subject || 'General',
     class: teacher.class || teacher.className || '–',
@@ -35,9 +36,91 @@ function normaliseTeacher(teacher, index) {
   };
 }
 
+function TeacherAccounts({ teachers }) {
+  return (
+    <div className="accounts-container">
+      <div className="accounts-header">
+        <h2>Teacher Accounts</h2>
+        <p>Login details and assigned classes for teacher access.</p>
+      </div>
+      <div className="accounts-list">
+        {teachers.map((teacher) => (
+          <div key={teacher.id} className="account-row">
+            <div className="account-user">
+              <div className="teacher-avatar" style={{ '--teacher-color': teacher.color }}>
+                {teacher.initials}
+              </div>
+              <div>
+                <div className="teacher-name">{teacher.name}</div>
+                <div className="teacher-subject">{teacher.subject} • {teacher.class}</div>
+              </div>
+            </div>
+            <div className="account-meta">
+              <div className="account-label">Email</div>
+              <div className="account-value">{teacher.email || 'No email'}</div>
+            </div>
+            <div className="account-meta">
+              <div className="account-label">Role</div>
+              <div className="account-value">Teacher</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AddTeacherPanel({ form, onChange, onSubmit, isSaving }) {
+  return (
+    <div className="accounts-container">
+      <div className="accounts-header">
+        <h2>Add Teacher</h2>
+        <p>Create a teacher login directly from the admin dashboard.</p>
+      </div>
+      <form className="add-teacher-form" onSubmit={onSubmit}>
+        <div className="add-teacher-grid">
+          <label className="form-field">
+            <span>Name</span>
+            <input name="name" value={form.name} onChange={onChange} placeholder="Priya Ramesh" required />
+          </label>
+          <label className="form-field">
+            <span>Email</span>
+            <input name="email" type="email" value={form.email} onChange={onChange} placeholder="teacher@school.com" required />
+          </label>
+          <label className="form-field">
+            <span>Password</span>
+            <input name="password" value={form.password} onChange={onChange} placeholder="Set login password" required />
+          </label>
+          <label className="form-field">
+            <span>Subject</span>
+            <input name="subject" value={form.subject} onChange={onChange} placeholder="Science" />
+          </label>
+          <label className="form-field">
+            <span>Class</span>
+            <input name="className" value={form.className} onChange={onChange} placeholder="9A" />
+          </label>
+        </div>
+        <div className="form-actions">
+          <button className="primary-action" type="submit" disabled={isSaving}>
+            {isSaving ? 'Adding...' : 'Add Teacher'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function AdminDashboard({ user, onLogout }) {
   const [activeSection, setActiveSection] = useState('tracking');
   const [teachers, setTeachers] = useState([]);
+  const [teacherForm, setTeacherForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    subject: '',
+    className: '',
+  });
+  const [isSavingTeacher, setIsSavingTeacher] = useState(false);
 
   const [announcements, setAnnouncements] = useState([
     { id:1, title:'Annual Sports Day Prep',    body:'All PE staff to coordinate with class teachers for student participation lists.', time:'Today, 9:00 AM', icon:'🏆', type:'info' },
@@ -119,11 +202,61 @@ export default function AdminDashboard({ user, onLogout }) {
     showToast('Announcement posted ✅');
   };
 
+  const handleTeacherFormChange = ({ target }) => {
+    const { name, value } = target;
+    setTeacherForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleAddTeacher = async (event) => {
+    event.preventDefault();
+    if (isSavingTeacher) return;
+
+    setIsSavingTeacher(true);
+
+    try {
+      const response = await fetch(apiUrl('/api/auth/teachers'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: teacherForm.name.trim(),
+          email: teacherForm.email.trim().toLowerCase(),
+          password: teacherForm.password.trim(),
+          subject: teacherForm.subject.trim(),
+          class: teacherForm.className.trim(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to add teacher.');
+      }
+
+      const createdTeacher = normaliseTeacher(data, teachers.length);
+      setTeachers((current) => [createdTeacher, ...current]);
+      setTeacherForm({ name: '', email: '', password: '', subject: '', className: '' });
+      showToast('Teacher added ✅');
+    } catch (error) {
+      showToast(error.message || 'Unable to add teacher.');
+    } finally {
+      setIsSavingTeacher(false);
+    }
+  };
+
   return (
     <div className="admin-shell">
       <AdminSidebar activeSection={activeSection} onShowSection={setActiveSection} user={user} onLogout={onLogout} />
       <div className="admin-content-wrapper">
         {activeSection === 'tracking' && <TeacherTracking teachers={teachers} lastUpdated={lastUpdated} />}
+        {activeSection === 'teachers' && (
+          <>
+            <AddTeacherPanel
+              form={teacherForm}
+              onChange={handleTeacherFormChange}
+              onSubmit={handleAddTeacher}
+              isSaving={isSavingTeacher}
+            />
+            <TeacherAccounts teachers={teachers} />
+          </>
+        )}
         {activeSection === 'notices' && <NoticeBoard announcements={announcements} onAddAnnouncement={handleAddAnnouncement} />}
         {activeSection === 'leaves' && <LeaveRequests requests={leaveRequests} onApprove={handleApproveLeave} onReject={handleRejectLeave} />}
       </div>

@@ -3,6 +3,9 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { fileURLToPath } from "url";
+import Admin from "../models/Admin.js";
+import Teacher from "../models/Teacher.js";
+
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,26 +34,6 @@ const upload = multer({
   },
 });
 
-const adminUser = {
-  id: 1,
-  email: "admin@gmail.com",
-  password: "1234",
-  role: "admin",
-  name: "Admin",
-  initials: "AD",
-};
-
-const teachers = [
-  { id: 2, name: "Priya Ramesh", email: "teacher1@gmail.com", password: "12345", role: "teacher", subject: "Science", class: "9A", initials: "PR", color: "#4f46e5", status: "present", checkin: "8:47 AM", onDuty: true, absent: 2, leave: 2, rate: "91%", lastLogin: null },
-  { id: 3, name: "Amit Sharma", email: "amit@school.edu", password: "12345", role: "teacher", subject: "Math", class: "8B", initials: "AS", color: "#0891b2", status: "present", checkin: "8:52 AM", onDuty: true, absent: 1, leave: 1, rate: "95%", lastLogin: null },
-  { id: 4, name: "Rekha Nair", email: "rekha@school.edu", password: "12345", role: "teacher", subject: "English", class: "10A", initials: "RN", color: "#d97706", status: "leave", checkin: "–", onDuty: false, absent: 3, leave: 4, rate: "85%", lastLogin: null },
-  { id: 5, name: "Suresh Pillai", email: "suresh@school.edu", password: "12345", role: "teacher", subject: "History", class: "7C", initials: "SP", color: "#dc2626", status: "absent", checkin: "–", onDuty: false, absent: 4, leave: 1, rate: "80%", lastLogin: null },
-  { id: 6, name: "Meera Joshi", email: "meera@school.edu", password: "12345", role: "teacher", subject: "Physics", class: "11B", initials: "MJ", color: "#059669", status: "present", checkin: "8:39 AM", onDuty: true, absent: 0, leave: 2, rate: "98%", lastLogin: null },
-  { id: 7, name: "Kiran Desai", email: "kiran@school.edu", password: "12345", role: "teacher", subject: "Chemistry", class: "12A", initials: "KD", color: "#7c3aed", status: "present", checkin: "8:55 AM", onDuty: false, absent: 1, leave: 3, rate: "93%", lastLogin: null },
-  { id: 8, name: "Pooja Kulkarni", email: "pooja@school.edu", password: "12345", role: "teacher", subject: "Biology", class: "9B", initials: "PK", color: "#be185d", status: "absent", checkin: "–", onDuty: false, absent: 5, leave: 2, rate: "78%", lastLogin: null },
-  { id: 9, name: "Raj Patil", email: "raj@school.edu", password: "12345", role: "teacher", subject: "Geo", class: "8A", initials: "RP", color: "#0891b2", status: "present", checkin: "8:44 AM", onDuty: true, absent: 2, leave: 1, rate: "90%", lastLogin: null },
-];
-
 function formatCheckin(date) {
   return new Date(date).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -60,39 +43,155 @@ function formatCheckin(date) {
 }
 
 function serializeTeacher(teacher) {
-  const { password, ...userData } = teacher;
+  const userData = teacher.toObject ? teacher.toObject() : { ...teacher };
+  delete userData.password;
   return userData;
 }
 
-router.post("/login", (req, res) => {
+function buildInitials(name = "") {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) return "T";
+  return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "T";
+}
+
+async function seedIfEmpty() {
+  const adminCount = await Admin.countDocuments();
+  if (adminCount === 0) {
+    await Admin.create({
+      name: "Admin",
+      email: "admin@gmail.com",
+      password: "1234",
+      role: "admin",
+      initials: "AD",
+    });
+  }
+
+  const teacherCount = await Teacher.countDocuments();
+  if (teacherCount === 0) {
+    await Teacher.create({
+      name: "Priya Ramesh",
+      email: "teacher1@gmail.com",
+      password: "12345",
+      role: "teacher",
+      subject: "Science",
+      class: "9A",
+      initials: "PR",
+      color: "#4f46e5",
+      status: "absent",
+      checkin: "–",
+      checkout: "–",
+      onDuty: false,
+      absent: 2,
+      leave: 2,
+      rate: "91%",
+    });
+  }
+}
+
+seedIfEmpty().catch((error) => {
+  console.error("Seed error:", error);
+});
+
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   const normalizedEmail = email?.trim().toLowerCase();
 
-  if (normalizedEmail === adminUser.email && password === adminUser.password) {
-    const { password: _, ...userData } = adminUser;
-    return res.json({ token: "admin-token-" + adminUser.id, user: userData });
+  try {
+    const adminUser = await Admin.findOne({ email: normalizedEmail });
+    if (adminUser) {
+      if (adminUser.password !== password) {
+        return res.status(401).json({ message: "Invalid email or password." });
+      }
+
+      const userData = adminUser.toObject();
+      delete userData.password;
+      return res.json({ token: "admin-token-" + adminUser._id, user: userData });
+    }
+
+    const teacher = await Teacher.findOne({ email: normalizedEmail });
+    if (!teacher || teacher.password !== password) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    teacher.lastLogin = new Date();
+    teacher.checkin = formatCheckin(teacher.lastLogin);
+    if (!teacher.status || teacher.status === "absent") {
+      teacher.status = "present";
+    }
+    await teacher.save();
+
+    return res.json({
+      token: "teacher-token-" + teacher._id,
+      user: serializeTeacher(teacher),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
-
-  const teacher = teachers.find(
-    (item) => item.email === normalizedEmail && item.password === password
-  );
-
-  if (!teacher) {
-    return res.status(401).json({ message: "Invalid email or password." });
-  }
-
-  teacher.lastLogin = new Date().toISOString();
-  teacher.status = "present";
-  teacher.checkin = formatCheckin(teacher.lastLogin);
-
-  return res.json({
-    token: "teacher-token-" + teacher.id,
-    user: serializeTeacher(teacher),
-  });
 });
 
-router.get("/teachers", (_req, res) => {
-  res.json(teachers.map(serializeTeacher));
+router.get("/teachers", async (_req, res) => {
+  try {
+    const teachers = await Teacher.find().sort({ name: 1 });
+    res.json(teachers.map(serializeTeacher));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.post("/teachers", async (req, res) => {
+  const {
+    name,
+    email,
+    password,
+    subject = "",
+    class: className = "",
+    color = "#4f46e5",
+  } = req.body || {};
+
+  const trimmedName = name?.trim();
+  const normalizedEmail = email?.trim().toLowerCase();
+  const trimmedPassword = password?.trim();
+
+  if (!trimmedName || !normalizedEmail || !trimmedPassword) {
+    return res.status(400).json({ message: "Name, email, and password are required." });
+  }
+
+  try {
+    const existingTeacher = await Teacher.findOne({ email: normalizedEmail });
+    if (existingTeacher) {
+      return res.status(409).json({ message: "A teacher with this email already exists." });
+    }
+
+    const teacher = await Teacher.create({
+      name: trimmedName,
+      email: normalizedEmail,
+      password: trimmedPassword,
+      role: "teacher",
+      subject: subject?.trim() || "General",
+      class: className?.trim() || "–",
+      initials: buildInitials(trimmedName),
+      color,
+      status: "absent",
+      checkin: "–",
+      checkout: "–",
+      onDuty: false,
+      absent: 0,
+      leave: 0,
+      rate: "0%",
+    });
+
+    return res.status(201).json(serializeTeacher(teacher));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
 });
 
 router.post("/teachers/upload", upload.single("photo"), (req, res) => {
@@ -107,16 +206,22 @@ router.post("/teachers/upload", upload.single("photo"), (req, res) => {
   });
 });
 
-router.put("/teachers/:id", (req, res) => {
-  const teacherId = Number(req.params.id);
-  const teacher = teachers.find((item) => item.id === teacherId);
+router.put("/teachers/:id", async (req, res) => {
+  try {
+    const teacher = await Teacher.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
 
-  if (!teacher) {
-    return res.status(404).json({ message: "Teacher not found." });
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found." });
+    }
+
+    return res.json(serializeTeacher(teacher));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
-
-  Object.assign(teacher, req.body);
-  return res.json(serializeTeacher(teacher));
 });
 
 router.use((error, _req, res, next) => {
