@@ -18,6 +18,7 @@ function normaliseTeacher(teacher, index) {
   return {
     id: teacher.id ?? teacher._id ?? index + 1,
     name: teacher.name,
+    email: teacher.email || '',
     initials: teacher.initials || 'T',
     subject: teacher.subject || 'General',
     class: teacher.class || teacher.className || '–',
@@ -33,6 +34,40 @@ function normaliseTeacher(teacher, index) {
     loginPhoto: teacher.loginPhoto || '',
     checkoutPhoto: teacher.checkoutPhoto || '',
   };
+}
+
+function TeacherAccounts({ teachers }) {
+  return (
+    <div className="accounts-container">
+      <div className="accounts-header">
+        <h2>Teacher Accounts</h2>
+        <p>Login details and assigned classes for teacher access.</p>
+      </div>
+      <div className="accounts-list">
+        {teachers.map((teacher) => (
+          <div key={teacher.id} className="account-row">
+            <div className="account-user">
+              <div className="teacher-avatar" style={{ '--teacher-color': teacher.color }}>
+                {teacher.initials}
+              </div>
+              <div>
+                <div className="teacher-name">{teacher.name}</div>
+                <div className="teacher-subject">{teacher.subject} • {teacher.class}</div>
+              </div>
+            </div>
+            <div className="account-meta">
+              <div className="account-label">Email</div>
+              <div className="account-value">{teacher.email || 'No email'}</div>
+            </div>
+            <div className="account-meta">
+              <div className="account-label">Role</div>
+              <div className="account-value">Teacher</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -113,7 +148,12 @@ export default function AdminDashboard({ user, onLogout }) {
       <AdminSidebar activeSection={activeSection} onShowSection={setActiveSection} user={user} onLogout={onLogout} />
       <div className="admin-content-wrapper">
         {activeSection === 'tracking' && <TeacherTracking teachers={teachers} />}
-        {activeSection === 'teachers' && <TeacherTracking teachers={teachers} />}
+        {activeSection === 'teachers' && (
+          <>
+            <TeacherTracking teachers={teachers} />
+            <TeacherAccounts teachers={teachers} />
+          </>
+        )}
         {activeSection === 'notices' && <NoticeBoard announcements={announcements} onAddAnnouncement={handleAddAnnouncement} />}
         {activeSection === 'leaves' && <LeaveRequests requests={leaveRequests} onApprove={handleApproveLeave} onReject={handleRejectLeave} />}
       </div>
