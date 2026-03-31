@@ -160,6 +160,7 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [reading, setReading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const title = action === 'checkin' ? 'Check In Verification' : 'Check Out Verification';
   const sub = action === 'checkin'
     ? "Take a photo outside the Principal's office to verify your arrival."
@@ -307,18 +308,24 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
             style={{
               ...styles.modalBtn,
               ...styles.modalBtnPrimary,
-              ...(!photo && !cameraReady ? styles.modalBtnDisabled : {}),
+              ...((!photo && !cameraReady) || submitting ? styles.modalBtnDisabled : {}),
             }}
-            disabled={!photo && !cameraReady}
-            onClick={() => {
-            if (!photo) {
-              handleCapturePhoto();
-              return;
-            }
-            onConfirm({ time: fmtTime(new Date()), photo });
-            onClose();
-          }}>
-            {photo ? '✅ Confirm' : '📸 Capture Photo'}
+            disabled={(!photo && !cameraReady) || submitting}
+            onClick={async () => {
+              if (!photo) {
+                handleCapturePhoto();
+                return;
+              }
+
+              setSubmitting(true);
+              try {
+                await onConfirm({ time: fmtTime(new Date()), photo });
+                onClose();
+              } finally {
+                setSubmitting(false);
+              }
+            }}>
+            {submitting ? 'Saving...' : photo ? '✅ Confirm' : '📸 Capture Photo'}
           </button>
         </div>
       </div>
@@ -374,7 +381,20 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
   }
 
   async function uploadAttendancePhoto(photo, action) {
-    const blob = await fetch(photo).then((response) => response.blob());
+    const [meta, content] = photo.split(',');
+    if (!meta || !content) {
+      throw new Error('Captured photo is invalid.');
+    }
+
+    const mimeMatch = meta.match(/data:(.*?);base64/);
+    const mimeType = mimeMatch?.[1] || 'image/jpeg';
+    const binary = atob(content);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+
+    const blob = new Blob([bytes], { type: mimeType });
     const formData = new FormData();
     formData.append('photo', blob, `${action}-${Date.now()}.jpg`);
 
