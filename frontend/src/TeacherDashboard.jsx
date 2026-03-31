@@ -335,6 +335,7 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
   const [checkoutPhoto, setCheckoutPhoto] = useState(teacher?.checkoutPhoto || '');
   const [onDuty, setOnDuty] = useState(Boolean(teacher?.onDuty));
   const [modal, setModal] = useState(null);
+  const [savingAction, setSavingAction] = useState("");
 
   useEffect(() => {
     setCheckinTime(teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : null);
@@ -345,31 +346,48 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
   }, [teacher]);
 
   async function persistAttendance(nextFields) {
-    if (!teacherId) return;
-
-    try {
-      const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nextFields),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.message || 'Unable to update attendance.');
-      }
-
-      onTeacherUpdate?.(data);
-
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if ((parsedUser.id || parsedUser._id) === teacherId) {
-          localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...data }));
-        }
-      }
-    } catch (error) {
-      showToast('⚠️', error.message || 'Unable to save attendance');
+    if (!teacherId) {
+      throw new Error('Teacher record is missing.');
     }
+
+    const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextFields),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to update attendance.');
+    }
+
+    onTeacherUpdate?.(data);
+
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      if ((parsedUser.id || parsedUser._id) === teacherId) {
+        localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...data }));
+      }
+    }
+
+    return data;
+  }
+
+  async function uploadAttendancePhoto(photo, action) {
+    const blob = await fetch(photo).then((response) => response.blob());
+    const formData = new FormData();
+    formData.append('photo', blob, `${action}-${Date.now()}.jpg`);
+
+    const response = await fetch(apiUrl('/api/auth/teachers/upload'), {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.photoUrl) {
+      throw new Error(data.message || 'Unable to upload photo.');
+    }
+
+    return data.photoUrl;
   }
 
   return (
@@ -401,8 +419,13 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
           onClick={async () => {
             const nextOnDuty = !onDuty;
             setOnDuty(nextOnDuty);
-            await persistAttendance({ onDuty: nextOnDuty });
-            showToast(nextOnDuty ? '✅' : '🔴', nextOnDuty ? 'You are now marked On Duty' : 'Duty ended');
+            try {
+              await persistAttendance({ onDuty: nextOnDuty });
+              showToast(nextOnDuty ? '✅' : '🔴', nextOnDuty ? 'You are now marked On Duty' : 'Duty ended');
+            } catch (error) {
+              setOnDuty(!nextOnDuty);
+              showToast('⚠️', error.message || 'Unable to update duty status');
+            }
           }}>
           <span>{onDuty ? '✅' : '🟢'}</span> {onDuty ? 'On Duty — Active' : 'Mark On Duty'}
         </button>
@@ -410,27 +433,44 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
       </div>
       {modal && (
         <CameraModal action={modal} onClose={() => setModal(null)} initialPhoto={modal === 'checkin' ? checkinPhoto : checkoutPhoto}
-          onConfirm={({ time, photo }) => {
-            if (modal === 'checkin') {
-              setCheckinTime(time);
-              setCheckinPhoto(photo);
-              persistAttendance({
-                checkin: time,
-                lastLogin: new Date().toISOString(),
-                loginPhoto: photo,
-                status: 'present',
-              });
-            } else {
-              setCheckoutTime(time);
-              setCheckoutPhoto(photo);
-              persistAttendance({
-                checkout: time,
-                lastCheckout: new Date().toISOString(),
-                checkoutPhoto: photo,
-              });
+          onConfirm={async ({ time, photo }) => {
+            const currentAction = modal;
+            setSavingAction(currentAction);
+
+            try {
+              const uploadedPhotoUrl = await uploadAttendancePhoto(photo, currentAction);
+
+              if (currentAction === 'checkin') {
+                await persistAttendance({
+                  checkin: time,
+                  lastLogin: new Date().toISOString(),
+                  loginPhoto: uploadedPhotoUrl,
+                  status: 'present',
+                });
+                setCheckinTime(time);
+                setCheckinPhoto(uploadedPhotoUrl);
+              } else {
+                await persistAttendance({
+                  checkout: time,
+                  lastCheckout: new Date().toISOString(),
+                  checkoutPhoto: uploadedPhotoUrl,
+                });
+                setCheckoutTime(time);
+                setCheckoutPhoto(uploadedPhotoUrl);
+              }
+
+              showToast(currentAction === 'checkin' ? '📍' : '👋', (currentAction === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + time);
+            } catch (error) {
+              showToast('⚠️', error.message || 'Unable to save attendance');
+            } finally {
+              setSavingAction('');
             }
-            showToast(modal === 'checkin' ? '📍' : '👋', (modal === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + time);
           }} />
+      )}
+      {savingAction && (
+        <div style={styles.savingBanner}>
+          Uploading {savingAction} photo...
+        </div>
       )}
     </div>
   );
@@ -821,6 +861,7 @@ const styles = {
   modalBtn: { flex: 1, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid #e4e2f0', background: '#f0eff8', color: '#1a1a2e' },
   modalBtnPrimary: { background: '#4f46e5', color: '#fff', borderColor: '#4f46e5' },
   modalBtnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
+  savingBanner: { marginTop: 14, padding: '10px 12px', borderRadius: 10, background: 'rgba(79,70,229,.08)', color: '#4338ca', fontSize: 13, fontWeight: 600, textAlign: 'center' },
   modalClose: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b6b8a' },
   emptyState: { textAlign: 'center', padding: '80px 40px' },
   emptyTitle: { fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: '#1a1a2e', marginBottom: 10 },
