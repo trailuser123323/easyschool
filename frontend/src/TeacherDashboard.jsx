@@ -24,7 +24,17 @@ function fmtDate(d) {
 function resolvePhotoUrl(photoUrl) {
   if (!photoUrl) return "";
   if (photoUrl.startsWith("data:")) return photoUrl;
-  if (/^https?:\/\//i.test(photoUrl)) return photoUrl;
+  if (/^https?:\/\//i.test(photoUrl)) {
+    try {
+      const parsed = new URL(photoUrl);
+      if (parsed.pathname.startsWith("/uploads/")) {
+        return apiUrl(parsed.pathname);
+      }
+      return photoUrl;
+    } catch {
+      return photoUrl;
+    }
+  }
   if (photoUrl.startsWith("/")) return apiUrl(photoUrl);
   return apiUrl(`/${photoUrl}`);
 }
