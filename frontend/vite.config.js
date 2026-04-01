@@ -6,6 +6,12 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   root: ".",
+  resolve: {
+    alias: {
+      react: path.resolve(__dirname, "../node_modules/react"),
+      "react-dom": path.resolve(__dirname, "../node_modules/react-dom"),
+    },
+  },
   server: {
     proxy: {
       "/api": "http://localhost:5000"
@@ -17,5 +23,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    setupFiles: './src/setupTests.js',
   },
 })
