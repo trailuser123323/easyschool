@@ -443,7 +443,7 @@
 
 .account-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 140px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 140px 120px;
   gap: 16px;
   align-items: center;
   padding: 16px;
@@ -476,6 +476,27 @@
   color: #111827;
   font-weight: 600;
   word-break: break-word;
+}
+
+.account-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.danger-action {
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.danger-action:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 @media (max-width: 900px) {

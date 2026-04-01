@@ -4,6 +4,28 @@ const LEAVE_REQUESTS_KEY = "teacher_leave_requests_fallback";
 const DEFAULT_TEACHERS = [
   {
     id: "demo-teacher-1",
+    name: "Ganeshsir",
+    email: "gstar@gmail.com",
+    role: "teacher",
+    subject: "All Rounder",
+    class: "–",
+    initials: "G",
+    color: "#0f766e",
+    status: "absent",
+    checkin: "–",
+    checkout: "–",
+    onDuty: false,
+    absent: 0,
+    leave: 0,
+    rate: "0%",
+    loginPhoto: "",
+    checkoutPhoto: "",
+    lastLogin: null,
+    lastCheckout: null,
+    updatedAt: 0,
+  },
+  {
+    id: "demo-teacher-2",
     name: "Priya Ramesh",
     email: "teacher1@gmail.com",
     role: "teacher",
@@ -24,7 +46,68 @@ const DEFAULT_TEACHERS = [
     lastCheckout: null,
     updatedAt: 0,
   },
+  {
+    id: "demo-teacher-3",
+    name: "niha",
+    email: "niha@gmail.com",
+    role: "teacher",
+    subject: "DSA",
+    class: "–",
+    initials: "N",
+    color: "#2563eb",
+    status: "absent",
+    checkin: "–",
+    checkout: "–",
+    onDuty: false,
+    absent: 0,
+    leave: 0,
+    rate: "0%",
+    loginPhoto: "",
+    checkoutPhoto: "",
+    lastLogin: null,
+    lastCheckout: null,
+    updatedAt: 0,
+  },
+  {
+    id: "demo-teacher-4",
+    name: "Admin",
+    email: "admin@gmail.com",
+    role: "teacher",
+    subject: "General",
+    class: "–",
+    initials: "AD",
+    color: "#7c3aed",
+    status: "absent",
+    checkin: "–",
+    checkout: "–",
+    onDuty: false,
+    absent: 0,
+    leave: 0,
+    rate: "0%",
+    loginPhoto: "",
+    checkoutPhoto: "",
+    lastLogin: null,
+    lastCheckout: null,
+    updatedAt: 0,
+  },
 ];
+
+function mergeDefaultTeachers(storedTeachers) {
+  const stored = Array.isArray(storedTeachers) ? storedTeachers : [];
+  const merged = [...stored];
+
+  DEFAULT_TEACHERS.forEach((teacher) => {
+    const index = merged.findIndex((item) => item?.email === teacher.email);
+    if (index >= 0) {
+      merged[index] = { ...teacher, ...merged[index] };
+      return;
+    }
+
+    merged.push(teacher);
+  });
+
+  return merged;
+}
 
 export function getFallbackTeachers() {
   try {
@@ -35,7 +118,9 @@ export function getFallbackTeachers() {
     }
 
     const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TEACHERS;
+    const nextTeachers = mergeDefaultTeachers(parsed);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextTeachers));
+    return nextTeachers.length > 0 ? nextTeachers : DEFAULT_TEACHERS;
   } catch {
     return DEFAULT_TEACHERS;
   }
@@ -43,6 +128,12 @@ export function getFallbackTeachers() {
 
 export function saveFallbackTeachers(teachers) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(teachers));
+}
+
+export function removeFallbackTeacher(target) {
+  const teachers = getFallbackTeachers().filter((teacher) => !teacherMatches(teacher, target));
+  saveFallbackTeachers(teachers);
+  return teachers;
 }
 
 function teacherMatches(teacher, target) {

@@ -154,7 +154,7 @@ export default function Homepage() {
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:13, color:"#64748b", marginBottom:3 }}>Email Us</div>
                     <div style={{ fontSize:15, fontWeight:700, color:"#60a5fa" }}>nihaswain7@gmail.com</div>
-                    <div style={{ fontSize:11, color:"#1e3a5f", marginTop:2, color:"#3b82f6" }}>Tap to send pre-filled email →</div>
+                    <div style={{ fontSize:11, color:"#3b82f6", marginTop:2 }}>Tap to send pre-filled email →</div>
                   </div>
                   <div style={{ fontSize:20, color:"#3b82f6" }}>→</div>
                 </div>

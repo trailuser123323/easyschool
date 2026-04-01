@@ -2,6 +2,50 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl, authHeaders } from "./api";
 
+function normaliseAuthenticatedUser(user, token) {
+  const role = user?.role === "admin" ? "admin" : "teacher";
+
+  if (role === "admin") {
+    return {
+      id: user?.id ?? user?._id ?? "",
+      _id: user?._id ?? user?.id ?? "",
+      name: user?.name || "Admin",
+      email: user?.email || "",
+      initials: user?.initials || "AD",
+      role,
+      token,
+    };
+  }
+
+  return {
+    id: user?.id ?? user?._id ?? "",
+    _id: user?._id ?? user?.id ?? "",
+    name: user?.name || "Teacher",
+    email: user?.email || "",
+    initials: user?.initials || "T",
+    role,
+    subject: user?.subject || "General",
+    class: user?.class || user?.className || "–",
+    status: user?.status || "absent",
+    checkin: user?.checkin || "–",
+    checkout: user?.checkout || "–",
+    onDuty: Boolean(user?.onDuty),
+    absent: user?.absent ?? 0,
+    leave: user?.leave ?? 0,
+    rate: user?.rate || "0%",
+    color: user?.color || "#4f46e5",
+    lastLogin: user?.lastLogin || null,
+    lastCheckout: user?.lastCheckout || null,
+    loginPhoto: user?.loginPhoto || "",
+    checkoutPhoto: user?.checkoutPhoto || "",
+    timetable: Array.isArray(user?.timetable) ? user.timetable : [],
+    attendanceRecords: Array.isArray(user?.attendanceRecords) ? user.attendanceRecords : [],
+    leaveRequests: Array.isArray(user?.leaveRequests) ? user.leaveRequests : [],
+    preferences: user?.preferences || {},
+    token,
+  };
+}
+
 export default function Login({ onLogin }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -29,10 +73,7 @@ export default function Login({ onLogin }) {
           throw new Error(data.message || "Invalid email or password.");
         }
 
-        const normalised = {
-          ...data.user,
-          token: data.token,
-        };
+        const normalised = normaliseAuthenticatedUser(data.user, data.token);
 
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(normalised));

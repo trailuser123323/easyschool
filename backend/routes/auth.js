@@ -42,6 +42,31 @@ function formatCheckin(date) {
   });
 }
 
+function getTodayKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function updateAttendanceRecord(teacher, updates) {
+  const records = Array.isArray(teacher.attendanceRecords) ? [...teacher.attendanceRecords] : [];
+  const today = getTodayKey();
+  const index = records.findIndex((record) => record.date === today);
+  const baseRecord = index >= 0
+    ? { ...records[index] }
+    : { date: today, status: "absent", checkin: "–", checkout: "–" };
+
+  if (updates.status) baseRecord.status = updates.status;
+  if (updates.checkin) baseRecord.checkin = updates.checkin;
+  if (updates.checkout) baseRecord.checkout = updates.checkout;
+
+  if (index >= 0) {
+    records[index] = baseRecord;
+  } else if (updates.status || updates.checkin || updates.checkout) {
+    records.unshift(baseRecord);
+  }
+
+  teacher.attendanceRecords = records.slice(0, 180);
+}
+
 function serializeTeacher(teacher) {
   const userData = teacher.toObject ? teacher.toObject() : { ...teacher };
   delete userData.password;
@@ -60,8 +85,8 @@ function buildInitials(name = "") {
 }
 
 async function seedIfEmpty() {
-  const adminCount = await Admin.countDocuments();
-  if (adminCount === 0) {
+  const adminUser = await Admin.findOne({ email: "admin@gmail.com" });
+  if (!adminUser) {
     await Admin.create({
       name: "Admin",
       email: "admin@gmail.com",
@@ -71,9 +96,25 @@ async function seedIfEmpty() {
     });
   }
 
-  const teacherCount = await Teacher.countDocuments();
-  if (teacherCount === 0) {
-    await Teacher.create({
+  const defaultTeachers = [
+    {
+      name: "Ganeshsir",
+      email: "gstar@gmail.com",
+      password: "12345",
+      role: "teacher",
+      subject: "All Rounder",
+      class: "–",
+      initials: "G",
+      color: "#0f766e",
+      status: "absent",
+      checkin: "–",
+      checkout: "–",
+      onDuty: false,
+      absent: 0,
+      leave: 0,
+      rate: "0%",
+    },
+    {
       name: "Priya Ramesh",
       email: "teacher1@gmail.com",
       password: "12345",
@@ -89,7 +130,48 @@ async function seedIfEmpty() {
       absent: 2,
       leave: 2,
       rate: "91%",
-    });
+    },
+    {
+      name: "niha",
+      email: "niha@gmail.com",
+      password: "12345",
+      role: "teacher",
+      subject: "DSA",
+      class: "–",
+      initials: "N",
+      color: "#2563eb",
+      status: "absent",
+      checkin: "–",
+      checkout: "–",
+      onDuty: false,
+      absent: 0,
+      leave: 0,
+      rate: "0%",
+    },
+    {
+      name: "Admin",
+      email: "admin@gmail.com",
+      password: "12345",
+      role: "teacher",
+      subject: "General",
+      class: "–",
+      initials: "AD",
+      color: "#7c3aed",
+      status: "absent",
+      checkin: "–",
+      checkout: "–",
+      onDuty: false,
+      absent: 0,
+      leave: 0,
+      rate: "0%",
+    },
+  ];
+
+  for (const teacher of defaultTeachers) {
+    const existingTeacher = await Teacher.findOne({ email: teacher.email });
+    if (!existingTeacher) {
+      await Teacher.create(teacher);
+    }
   }
 }
 
@@ -123,6 +205,10 @@ router.post("/login", async (req, res) => {
     if (!teacher.status || teacher.status === "absent") {
       teacher.status = "present";
     }
+    updateAttendanceRecord(teacher, {
+      status: teacher.status,
+      checkin: teacher.checkin,
+    });
     await teacher.save();
 
     return res.json({
@@ -186,6 +272,7 @@ router.post("/teachers", async (req, res) => {
       leave: 0,
       rate: "0%",
       timetable: [],
+      attendanceRecords: [],
     });
 
     return res.status(201).json(serializeTeacher(teacher));
@@ -209,16 +296,77 @@ router.post("/teachers/upload", upload.single("photo"), (req, res) => {
 
 router.put("/teachers/:id", async (req, res) => {
   try {
-    const teacher = await Teacher.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const teacher = await Teacher.findById(req.params.id);
 
     if (!teacher) {
       return res.status(404).json({ message: "Teacher not found." });
     }
 
+    const updates = req.body || {};
+    const allowedKeys = [
+      "name",
+      "subject",
+      "class",
+      "status",
+      "checkin",
+      "checkout",
+      "onDuty",
+      "lastLogin",
+      "lastCheckout",
+      "loginPhoto",
+      "checkoutPhoto",
+      "leaveRequests",
+      "timetable",
+      "attendanceRecords",
+    ];
+
+    for (const key of allowedKeys) {
+      if (!(key in updates)) continue;
+
+      if (key === "leaveRequests") {
+        teacher.leaveRequests = Array.isArray(updates.leaveRequests) ? updates.leaveRequests : [];
+        continue;
+      }
+
+      if (key === "timetable") {
+        teacher.timetable = Array.isArray(updates.timetable) ? updates.timetable : [];
+        continue;
+      }
+
+      if (key === "attendanceRecords") {
+        teacher.attendanceRecords = Array.isArray(updates.attendanceRecords) ? updates.attendanceRecords : teacher.attendanceRecords;
+        continue;
+      }
+
+      teacher[key] = updates[key];
+    }
+
+    if ("checkin" in updates || "checkout" in updates || "status" in updates) {
+      updateAttendanceRecord(teacher, updates);
+    }
+
+    if ("name" in updates && typeof teacher.name === "string") {
+      teacher.initials = buildInitials(teacher.name);
+    }
+
+    await teacher.save();
+
     return res.json(serializeTeacher(teacher));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.delete("/teachers/:id", async (req, res) => {
+  try {
+    const teacher = await Teacher.findByIdAndDelete(req.params.id);
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found." });
+    }
+
+    return res.json({ message: "Teacher deleted successfully." });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

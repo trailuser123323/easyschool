@@ -399,6 +399,21 @@ router.get("/teachers", requireAuth, requireAdmin, async (_req, res) => {
   }
 });
 
+router.get("/teachers/:id", requireAuth, canModifyTeacher, async (req, res) => {
+  try {
+    const teacher = await Teacher.findById(req.params.id);
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found." });
+    }
+
+    return res.json(serializeTeacher(teacher));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.post("/teachers", requireAuth, requireAdmin, async (req, res) => {
   const {
     name,
@@ -455,9 +470,13 @@ router.post("/teachers/upload", requireAuth, upload.single("photo"), (req, res) 
     return res.status(400).json({ message: "Photo file is required." });
   }
 
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const forwardedProto = req.get("x-forwarded-proto");
+  const forwardedHost = req.get("x-forwarded-host");
+  const protocol = forwardedProto?.split(",")[0]?.trim() || req.protocol;
+  const host = forwardedHost?.split(",")[0]?.trim() || req.get("host");
   return res.json({
-    photoUrl: `${baseUrl}/uploads/${req.file.filename}`,
+    photoUrl: `${protocol}://${host}/uploads/${req.file.filename}`,
+    photoPath: `/uploads/${req.file.filename}`,
     filename: req.file.filename,
   });
 });

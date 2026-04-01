@@ -5,7 +5,7 @@ import TeacherTracking from './components/TeacherTracking';
 import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
-import { getFallbackTeachers, saveFallbackTeachers } from './demoData';
+import { getFallbackTeachers, removeFallbackTeacher, saveFallbackTeachers } from './demoData';
 
 function formatMonthValue(value) {
   const date = value ? new Date(`${value}-01T00:00:00`) : new Date();
@@ -67,6 +67,7 @@ function normaliseTeacher(teacher, index) {
     loginPhoto: teacher.loginPhoto || '',
     checkoutPhoto: teacher.checkoutPhoto || '',
     timetable: normaliseTimetableEntries(teacher.timetable),
+    attendanceRecords: Array.isArray(teacher.attendanceRecords) ? teacher.attendanceRecords : [],
     leaveRequests: Array.isArray(teacher.leaveRequests) ? teacher.leaveRequests : [],
     updatedAt: teacher.updatedAt || 0,
   };
@@ -256,7 +257,7 @@ function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
   );
 }
 
-function TeacherAccounts({ teachers }) {
+function TeacherAccounts({ teachers, onDeleteTeacher, deletingTeacherId }) {
   return (
     <div className="accounts-container">
       <div className="accounts-header">
@@ -283,6 +284,16 @@ function TeacherAccounts({ teachers }) {
               <div className="account-label">Role</div>
               <div className="account-value">Teacher</div>
             </div>
+            <div className="account-actions">
+              <button
+                type="button"
+                className="danger-action"
+                disabled={deletingTeacherId === teacher.id}
+                onClick={() => onDeleteTeacher(teacher)}
+              >
+                {deletingTeacherId === teacher.id ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -301,6 +312,7 @@ export default function AdminDashboard({ user, onLogout }) {
     className: '',
   });
   const [isSavingTeacher, setIsSavingTeacher] = useState(false);
+  const [deletingTeacherId, setDeletingTeacherId] = useState('');
   const [timetableForm, setTimetableForm] = useState({
     teacherId: '',
     month: formatMonthValue(),
@@ -486,6 +498,38 @@ export default function AdminDashboard({ user, onLogout }) {
     setTimetableForm((current) => ({ ...current, [name]: value }));
   };
 
+  const handleDeleteTeacher = async (teacher) => {
+    if (!teacher) return;
+
+    const confirmed = window.confirm(`Delete teacher account for ${teacher.name}?`);
+    if (!confirmed) return;
+
+    setDeletingTeacherId(teacher.id);
+
+    try {
+      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
+        method: 'DELETE',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to delete teacher.');
+      }
+
+      const nextTeachers = teachers.filter((item) => String(item.id) !== String(teacher.id));
+      setTeachers(nextTeachers);
+      removeFallbackTeacher(teacher);
+      showToast('Teacher deleted ✅');
+    } catch (error) {
+      const nextTeachers = teachers.filter((item) => String(item.id) !== String(teacher.id));
+      setTeachers(nextTeachers);
+      removeFallbackTeacher(teacher);
+      showToast(error.message || 'Teacher deleted locally ⚠️');
+    } finally {
+      setDeletingTeacherId('');
+      setTimetableForm((current) => current.teacherId === String(teacher.id) ? { ...current, teacherId: '' } : current);
+    }
+  };
+
   const handleAddTimetable = async (event) => {
     event.preventDefault();
     if (isSavingTimetable) return;
@@ -554,7 +598,11 @@ export default function AdminDashboard({ user, onLogout }) {
               onSubmit={handleAddTeacher}
               isSaving={isSavingTeacher}
             />
-            <TeacherAccounts teachers={teachers} />
+            <TeacherAccounts
+              teachers={teachers}
+              onDeleteTeacher={handleDeleteTeacher}
+              deletingTeacherId={deletingTeacherId}
+            />
           </>
         )}
         {activeSection === 'timetables' && (

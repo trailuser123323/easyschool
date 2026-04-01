@@ -21,6 +21,54 @@ function fmtDate(d) {
   return `${dy[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function resolvePhotoUrl(photoUrl) {
+  if (!photoUrl) return "";
+  if (photoUrl.startsWith("data:")) return photoUrl;
+  if (/^https?:\/\//i.test(photoUrl)) {
+    try {
+      const parsed = new URL(photoUrl);
+      if (parsed.pathname.startsWith("/uploads/")) {
+        return apiUrl(parsed.pathname);
+      }
+      return photoUrl;
+    } catch {
+      return photoUrl;
+    }
+  }
+  if (photoUrl.startsWith("/")) return apiUrl(photoUrl);
+  return apiUrl(`/${photoUrl}`);
+}
+
+function normaliseTeacherSession(currentUser, nextTeacher) {
+  return {
+    token: currentUser?.token || localStorage.getItem("token") || "",
+    role: "teacher",
+    id: nextTeacher?.id ?? nextTeacher?._id ?? currentUser?.id ?? currentUser?._id ?? "",
+    _id: nextTeacher?._id ?? nextTeacher?.id ?? currentUser?._id ?? currentUser?.id ?? "",
+    name: nextTeacher?.name || currentUser?.name || "Teacher",
+    email: nextTeacher?.email || currentUser?.email || "",
+    initials: nextTeacher?.initials || currentUser?.initials || "T",
+    subject: nextTeacher?.subject || currentUser?.subject || "General",
+    class: nextTeacher?.class || nextTeacher?.className || currentUser?.class || currentUser?.className || "–",
+    status: nextTeacher?.status || currentUser?.status || "absent",
+    checkin: nextTeacher?.checkin || currentUser?.checkin || "–",
+    checkout: nextTeacher?.checkout || currentUser?.checkout || "–",
+    onDuty: Boolean(nextTeacher?.onDuty ?? currentUser?.onDuty),
+    absent: nextTeacher?.absent ?? currentUser?.absent ?? 0,
+    leave: nextTeacher?.leave ?? currentUser?.leave ?? 0,
+    rate: nextTeacher?.rate || currentUser?.rate || "0%",
+    color: nextTeacher?.color || currentUser?.color || "#4f46e5",
+    lastLogin: nextTeacher?.lastLogin || currentUser?.lastLogin || null,
+    lastCheckout: nextTeacher?.lastCheckout || currentUser?.lastCheckout || null,
+    loginPhoto: nextTeacher?.loginPhoto || "",
+    checkoutPhoto: nextTeacher?.checkoutPhoto || "",
+    timetable: Array.isArray(nextTeacher?.timetable) ? nextTeacher.timetable : Array.isArray(currentUser?.timetable) ? currentUser.timetable : [],
+    attendanceRecords: Array.isArray(nextTeacher?.attendanceRecords) ? nextTeacher.attendanceRecords : Array.isArray(currentUser?.attendanceRecords) ? currentUser.attendanceRecords : [],
+    leaveRequests: Array.isArray(nextTeacher?.leaveRequests) ? nextTeacher.leaveRequests : Array.isArray(currentUser?.leaveRequests) ? currentUser.leaveRequests : [],
+    preferences: nextTeacher?.preferences || currentUser?.preferences || {},
+  };
+}
+
 function currentMonthValue() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -29,7 +77,7 @@ function currentMonthValue() {
 function normaliseMonthlyTimetable(timetable) {
   if (!Array.isArray(timetable)) return [];
 
-  return timetable
+  return [...timetable]
     .map((entry) => ({
       month: entry?.month || "",
       periods: Array.from({ length: 3 }, (_, index) => {
@@ -42,7 +90,8 @@ function normaliseMonthlyTimetable(timetable) {
         };
       }),
     }))
-    .filter((entry) => entry.month);
+    .filter((entry) => entry.month)
+    .sort((a, b) => b.month.localeCompare(a.month));
 }
 
 function normaliseLeaveRequests(leaveRequests) {
@@ -400,6 +449,8 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
   const [onDuty, setOnDuty] = useState(Boolean(teacher?.onDuty));
   const [modal, setModal] = useState(null);
   const [savingAction, setSavingAction] = useState("");
+  const resolvedCheckinPhoto = resolvePhotoUrl(checkinPhoto);
+  const resolvedCheckoutPhoto = resolvePhotoUrl(checkoutPhoto);
 
   useEffect(() => {
     setCheckinTime(teacher?.checkin && teacher.checkin !== "–" ? teacher.checkin : null);
@@ -463,6 +514,33 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
         >
           <span>{onDuty ? "✅" : "🟢"}</span> {onDuty ? "On Duty — Active" : "Mark On Duty"}
         </button>
+        {(resolvedCheckinPhoto || resolvedCheckoutPhoto) && (
+          <div style={styles.photoSection}>
+            <div style={styles.photoSectionTitle}>Attendance Photo Proof</div>
+            <div style={styles.photoGrid}>
+              <div style={styles.photoCard}>
+                <div style={styles.photoLabel}>Check In</div>
+                {resolvedCheckinPhoto ? (
+                  <a href={resolvedCheckinPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
+                    <img src={resolvedCheckinPhoto} alt="Check-in proof" style={styles.photoPreview} />
+                  </a>
+                ) : (
+                  <div style={styles.photoEmpty}>No check-in photo yet</div>
+                )}
+              </div>
+              <div style={styles.photoCard}>
+                <div style={styles.photoLabel}>Check Out</div>
+                {resolvedCheckoutPhoto ? (
+                  <a href={resolvedCheckoutPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
+                    <img src={resolvedCheckoutPhoto} alt="Check-out proof" style={styles.photoPreview} />
+                  </a>
+                ) : (
+                  <div style={styles.photoEmpty}>No check-out photo yet</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <LocationPings teacher={teacher} />
       </div>
       {modal && (
@@ -789,7 +867,13 @@ function Dashboard({ teacher, announcements, showToast, openLeave, onTeacherUpda
 function TimetableSection({ teacher }) {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
   const schedules = normaliseMonthlyTimetable(teacher?.timetable);
-  const selectedSchedule = schedules.find((entry) => entry.month === selectedMonth) || schedules[0];
+  const matchedSchedule = schedules.find((entry) => entry.month === selectedMonth);
+  const selectedSchedule = matchedSchedule || schedules[0];
+
+  useEffect(() => {
+    if (matchedSchedule || schedules.length === 0) return;
+    setSelectedMonth(schedules[0]?.month || currentMonthValue());
+  }, [matchedSchedule, schedules]);
 
   return (
     <div>
@@ -1038,6 +1122,34 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   }, [teacher]);
 
   useEffect(() => {
+    const teacherId = teacher?._id || teacher?.id;
+    if (!teacherId) return undefined;
+
+    let cancelled = false;
+
+    async function loadTeacher() {
+      try {
+        const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
+          headers: authHeaders(),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || cancelled) return;
+        syncTeacherState(data);
+      } catch {
+        // Keep existing UI state if background refresh fails.
+      }
+    }
+
+    loadTeacher();
+    const intervalId = window.setInterval(loadTeacher, 10000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [teacher?._id, teacher?.id]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadAnnouncements() {
@@ -1058,12 +1170,11 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   function syncTeacherState(nextTeacher) {
     setTeacherState(nextTeacher);
     const storedUser = localStorage.getItem("user");
-    if (!storedUser) return;
     try {
-      const parsedUser = JSON.parse(storedUser);
-      localStorage.setItem("user", JSON.stringify({ ...parsedUser, ...nextTeacher }));
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      localStorage.setItem("user", JSON.stringify(normaliseTeacherSession(parsedUser, nextTeacher)));
     } catch {
-      localStorage.setItem("user", JSON.stringify(nextTeacher));
+      localStorage.setItem("user", JSON.stringify(normaliseTeacherSession(null, nextTeacher)));
     }
   }
 
@@ -1155,6 +1266,14 @@ const styles = {
   dutyBtnOff: { background: "#4f46e5", color: "#fff" },
   dutyBtnOn: { background: "rgba(5,150,105,.12)", color: "#059669", border: "1.5px solid #059669" },
   dutyBadge: { display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(5,150,105,.12)", color: "#059669", borderRadius: 20, padding: "4px 10px", fontSize: 12, fontWeight: 500 },
+  photoSection: { marginTop: 18, marginBottom: 18 },
+  photoSectionTitle: { fontSize: 13, fontWeight: 700, color: "#1a1a2e", marginBottom: 10 },
+  photoGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
+  photoCard: { border: "1px solid #e4e2f0", borderRadius: 12, background: "#fafafe", overflow: "hidden" },
+  photoLabel: { padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "#4338ca", background: "#eef2ff", borderBottom: "1px solid #e4e2f0" },
+  photoLink: { display: "block", textDecoration: "none" },
+  photoPreview: { width: "100%", height: 160, objectFit: "cover", display: "block", background: "#111827" },
+  photoEmpty: { height: 160, display: "flex", alignItems: "center", justifyContent: "center", padding: 12, textAlign: "center", fontSize: 12, color: "#6b6b8a", background: "#f8fafc" },
   savingBanner: { margin: "0 22px 20px", padding: "10px 12px", borderRadius: 10, background: "rgba(79,70,229,.08)", color: "#4338ca", fontSize: 12, fontWeight: 600, textAlign: "center" },
   locationRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e4e2f0" },
   locTime: { fontSize: 12, color: "#6b6b8a", width: 60, flexShrink: 0 },

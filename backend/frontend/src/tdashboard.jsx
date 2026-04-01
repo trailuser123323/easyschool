@@ -1,9 +1,18 @@
-import { useState, useEffect, useRef } from "react";
-import { apiUrl } from "./api";
-import { upsertFallbackTeacher } from "./demoData";
+import { useState, useEffect } from "react";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const attn = {
+  '2025-3-3':{s:'present',i:'8:45 AM',o:'4:00 PM'},'2025-3-4':{s:'present',i:'8:50 AM',o:'4:05 PM'},
+  '2025-3-5':{s:'leave',i:'–',o:'–'},'2025-3-6':{s:'present',i:'8:42 AM',o:'4:10 PM'},
+  '2025-3-7':{s:'present',i:'8:55 AM',o:'4:00 PM'},'2025-3-10':{s:'present',i:'8:40 AM',o:'4:00 PM'},
+  '2025-3-11':{s:'absent',i:'–',o:'–'},'2025-3-12':{s:'leave',i:'–',o:'–'},
+  '2025-3-13':{s:'leave',i:'–',o:'–'},'2025-3-14':{s:'present',i:'8:52 AM',o:'4:00 PM'},
+  '2025-3-17':{s:'present',i:'8:48 AM',o:'4:00 PM'},'2025-3-18':{s:'present',i:'8:44 AM',o:'4:00 PM'},
+  '2025-3-19':{s:'present',i:'8:50 AM',o:'4:00 PM'},'2025-3-20':{s:'absent',i:'–',o:'–'},
+  '2025-3-21':{s:'present',i:'8:47 AM',o:'–'}
+};
 
 function padZ(n) { return String(n).padStart(2, '0'); }
 function fmtTime(d) {
@@ -17,91 +26,8 @@ function fmtDate(d) {
   return dy[d.getDay()] + ', ' + d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear();
 }
 
-function resolvePhotoUrl(photoUrl) {
-  if (!photoUrl) return "";
-  if (photoUrl.startsWith("data:")) return photoUrl;
-  if (/^https?:\/\//i.test(photoUrl)) return photoUrl;
-  if (photoUrl.startsWith("/")) return apiUrl(photoUrl);
-  return apiUrl(`/${photoUrl}`);
-}
-
-function formatTeacherRole(teacher) {
-  if (!teacher) return "";
-
-  const subject = teacher.subject || "General";
-  const className = teacher.class || teacher.className || "Unassigned";
-  return `${subject} · Class ${className}`;
-}
-
-function normaliseTimetable(timetable) {
-  return Array.isArray(timetable)
-    ? timetable.map((entry) => ({
-        date: entry?.date || '',
-        day: entry?.day || '',
-        timeSlot: entry?.timeSlot || entry?.period || '',
-        period: entry?.period || entry?.timeSlot || '',
-        subject: entry?.subject || '',
-        room: entry?.room || '',
-      }))
-    : [];
-}
-
-function normaliseLeaveRequests(leaveRequests) {
-  return Array.isArray(leaveRequests) ? leaveRequests : [];
-}
-
-function buildAttendanceMap(teacher, now = new Date()) {
-  const records = {};
-
-  if (Array.isArray(teacher?.attendanceRecords)) {
-    teacher.attendanceRecords.forEach((record) => {
-      if (!record?.date) return;
-      const parsedDate = new Date(`${record.date}T00:00:00`);
-      if (Number.isNaN(parsedDate.getTime())) return;
-
-      records[`${parsedDate.getFullYear()}-${parsedDate.getMonth() + 1}-${parsedDate.getDate()}`] = {
-        s: record.status || "absent",
-        i: record.checkin || "–",
-        o: record.checkout || "–",
-      };
-    });
-  }
-
-  const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-  if (!records[todayKey] && (teacher?.status || (teacher?.checkin && teacher.checkin !== "–"))) {
-    records[todayKey] = {
-      s: teacher.status === "leave" ? "leave" : teacher.status === "absent" ? "absent" : "present",
-      i: teacher.checkin && teacher.checkin !== "–" ? teacher.checkin : "–",
-      o: teacher.checkout && teacher.checkout !== "–" ? teacher.checkout : "–",
-    };
-  }
-
-  return records;
-}
-
-function mergeAttendanceRecords(currentRecords, updates, now = new Date()) {
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const records = Array.isArray(currentRecords) ? [...currentRecords] : [];
-  const index = records.findIndex((record) => record?.date === todayKey);
-  const baseRecord = index >= 0
-    ? { ...records[index] }
-    : { date: todayKey, status: 'absent', checkin: '–', checkout: '–' };
-
-  if (updates.status) baseRecord.status = updates.status;
-  if (updates.checkin) baseRecord.checkin = updates.checkin;
-  if (updates.checkout) baseRecord.checkout = updates.checkout;
-
-  if (index >= 0) {
-    records[index] = baseRecord;
-  } else if (updates.status || updates.checkin || updates.checkout) {
-    records.unshift(baseRecord);
-  }
-
-  return records.slice(0, 180);
-}
-
 // ─── SIDEBAR ───────────────────────────────────────────────
-function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
+function Sidebar({ activeSection, onNav, onApplyLeave }) {
   const navItems = [
     { id: 'dashboard', icon: '🏠', label: 'Dashboard', group: 'main' },
     { id: 'attendance', icon: '📅', label: 'Attendance', group: 'main' },
@@ -111,17 +37,14 @@ function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
     { id: 'announcements', icon: '📢', label: 'Announcements', group: 'tools' },
     { id: 'settings', icon: '⚙️', label: 'Settings', group: 'tools' },
   ];
-  const initials = teacher?.initials || 'T';
-  const name     = teacher?.name     || 'Teacher';
-  const role     = formatTeacherRole(teacher);
   return (
     <aside style={styles.sidebar}>
       <div style={styles.logoArea}><div style={styles.portalLabel}>Staff Portal</div></div>
       <div style={styles.teacherPill}>
-        <div style={styles.avatar}>{initials}</div>
+        <div style={styles.avatar}>PR</div>
         <div>
-          <div style={styles.teacherName}>{name}</div>
-          <div style={styles.teacherRole}>{role}</div>
+          <div style={styles.teacherName}>Priya Ramesh</div>
+          <div style={styles.teacherRole}>Science · Class 9A</div>
         </div>
       </div>
       <nav style={styles.nav}>
@@ -140,10 +63,6 @@ function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
             <span style={styles.navIcon}>{n.icon}</span> {n.label}
           </button>
         ))}
-        <div style={styles.navLbl}>Account</div>
-        <button style={{...styles.navItem, color:'rgba(220,80,80,.8)'}} onClick={onLogout}>
-          <span style={styles.navIcon}>🚪</span> Logout
-        </button>
       </nav>
       <div style={styles.sidebarFooter}>
         <div style={styles.statusBadge}>
@@ -156,17 +75,12 @@ function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
 }
 
 // ─── STATS ROW ─────────────────────────────────────────────
-function StatsRow({ teacher }) {
-  const absentDays = Number(teacher?.absent) || 0;
-  const leaveTaken = Number(teacher?.leave) || 0;
-  const onTimeRate = teacher?.rate || '0%';
-  const lastCheckin = teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : 'Not checked in';
-  const presentStatus = teacher?.status === 'present' ? 'Present today' : teacher?.status === 'leave' ? 'On leave today' : 'Marked absent today';
+function StatsRow() {
   const stats = [
-    { label: 'Today', value: teacher?.status === 'present' ? 'Present' : teacher?.status === 'leave' ? 'Leave' : 'Absent', sub: presentStatus, color: teacher?.status === 'present' ? '#059669' : teacher?.status === 'leave' ? '#d97706' : '#dc2626' },
-    { label: 'Absent Days', value: absentDays, sub: 'Recorded this month', color: '#dc2626' },
-    { label: 'Leave Taken', value: leaveTaken, sub: 'Current month total', color: '#d97706' },
-    { label: 'On-Time Rate', value: onTimeRate, sub: `Last check-in: ${lastCheckin}`, color: '#2563eb' },
+    { label: 'Present Days', value: 18, sub: 'Out of 22 working days', color: '#059669' },
+    { label: 'Absent Days', value: 2, sub: 'This month', color: '#dc2626' },
+    { label: 'Leave Taken', value: 2, sub: '3 leaves remaining', color: '#d97706' },
+    { label: 'On-Time Rate', value: '91%', sub: 'avg. 8:47 AM arrival', color: '#2563eb' },
   ];
   return (
     <div style={styles.statsRow}>
@@ -228,182 +142,27 @@ function LocationPings() {
 }
 
 // ─── CAMERA MODAL ──────────────────────────────────────────
-function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const [photo, setPhoto] = useState(initialPhoto || "");
-  const [cameraStream, setCameraStream] = useState(null);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [cameraLoading, setCameraLoading] = useState(false);
-  const [cameraError, setCameraError] = useState("");
-  const [reading, setReading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+function CameraModal({ action, onClose, onConfirm }) {
+  const [captured, setCaptured] = useState(false);
   const title = action === 'checkin' ? 'Check In Verification' : 'Check Out Verification';
   const sub = action === 'checkin'
     ? "Take a photo outside the Principal's office to verify your arrival."
     : 'Take a photo to confirm your departure.';
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function startCamera() {
-      setCameraReady(false);
-      setCameraError("");
-
-      if (photo || !navigator.mediaDevices?.getUserMedia) {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          setCameraError("Camera access is not supported in this browser.");
-        }
-        return;
-      }
-
-      try {
-        setCameraLoading(true);
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-
-        setCameraStream(stream);
-      } catch (error) {
-        setCameraError("Camera permission was blocked. Use Upload instead.");
-      } finally {
-        if (!cancelled) {
-          setCameraLoading(false);
-        }
-      }
-    }
-
-    startCamera();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [photo]);
-
-  useEffect(() => {
-    if (!videoRef.current || !cameraStream || photo) return;
-
-    videoRef.current.srcObject = cameraStream;
-    videoRef.current.play?.().catch(() => {});
-  }, [cameraStream, photo]);
-
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [cameraStream]);
-
-  function handleFileChange(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    setReading(true);
-    reader.onload = () => {
-      setPhoto(typeof reader.result === "string" ? reader.result : "");
-      setReading(false);
-    };
-    reader.onerror = () => {
-      setReading(false);
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function handleCapturePhoto() {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (!video || !canvas) return;
-
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const context = canvas.getContext("2d");
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setPhoto(canvas.toDataURL("image/jpeg", 0.92));
-  }
-
   return (
     <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={styles.modal}>
         <button style={styles.modalClose} onClick={onClose}>✕</button>
         <div style={styles.modalTitle}>{title}</div>
         <div style={styles.modalSub}>{sub}</div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-        <div style={styles.cameraPreview}>
-          {photo ? (
-            <img src={photo} alt={`${action} capture`} style={styles.cameraImage} />
-          ) : (
-            <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                onLoadedMetadata={() => setCameraReady(true)}
-                style={{
-                  ...styles.cameraImage,
-                  ...(cameraReady ? {} : styles.cameraImageHidden),
-                }}
-              />
-              {!cameraReady && (
-                <div style={styles.cameraPlaceholder}>{reading || cameraLoading ? '⏳' : '📷'}</div>
-              )}
-            </>
-          )}
-        </div>
-        {cameraError && <div style={styles.cameraError}>{cameraError}</div>}
-        {!cameraError && !photo && (
-          <div style={styles.cameraStatus}>
-            {cameraReady ? 'Camera ready' : cameraLoading ? 'Starting camera...' : 'Waiting for camera permission...'}
-          </div>
-        )}
+        <div style={styles.cameraPreview}>{captured ? '🤳' : '📷'}</div>
         <div style={styles.cameraHint}>📍 Location captured automatically · <b>18.5204° N, 73.8567° E</b></div>
         <div style={styles.modalBtns}>
           <button style={styles.modalBtn} onClick={onClose}>Cancel</button>
-          {!photo && cameraError && (
-            <button style={styles.modalBtn} onClick={() => fileInputRef.current?.click()}>
-              Upload Instead
-            </button>
-          )}
-          <button
-            style={{
-              ...styles.modalBtn,
-              ...styles.modalBtnPrimary,
-              ...((!photo && !cameraReady) || submitting ? styles.modalBtnDisabled : {}),
-            }}
-            disabled={(!photo && !cameraReady) || submitting}
-            onClick={async () => {
-              if (!photo) {
-                handleCapturePhoto();
-                return;
-              }
-
-              setSubmitting(true);
-              try {
-                await onConfirm({ time: fmtTime(new Date()), photo });
-                onClose();
-              } finally {
-                setSubmitting(false);
-              }
-            }}>
-            {submitting ? 'Saving...' : photo ? '✅ Confirm' : '📸 Capture Photo'}
+          <button style={{...styles.modalBtn, ...styles.modalBtnPrimary}} onClick={() => {
+            if (!captured) { setCaptured(true); }
+            else { onConfirm(fmtTime(new Date())); onClose(); }
+          }}>
+            {captured ? '✅ Confirm' : '📸 Capture Photo'}
           </button>
         </div>
       </div>
@@ -412,113 +171,11 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
 }
 
 // ─── CHECK IN / OUT CARD ───────────────────────────────────
-function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
-  const teacherId = teacher?.id || teacher?._id;
-  const [checkinTime, setCheckinTime] = useState(teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : null);
-  const [checkoutTime, setCheckoutTime] = useState(teacher?.checkout && teacher.checkout !== '–' ? teacher.checkout : null);
-  const [checkinPhoto, setCheckinPhoto] = useState(teacher?.loginPhoto || '');
-  const [checkoutPhoto, setCheckoutPhoto] = useState(teacher?.checkoutPhoto || '');
-  const [onDuty, setOnDuty] = useState(Boolean(teacher?.onDuty));
+function AttendanceCard({ showToast }) {
+  const [checkinTime, setCheckinTime] = useState(null);
+  const [checkoutTime, setCheckoutTime] = useState(null);
+  const [onDuty, setOnDuty] = useState(false);
   const [modal, setModal] = useState(null);
-  const [savingAction, setSavingAction] = useState("");
-  const resolvedCheckinPhoto = resolvePhotoUrl(checkinPhoto);
-  const resolvedCheckoutPhoto = resolvePhotoUrl(checkoutPhoto);
-
-  useEffect(() => {
-    setCheckinTime(teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : null);
-    setCheckoutTime(teacher?.checkout && teacher.checkout !== '–' ? teacher.checkout : null);
-    setCheckinPhoto(teacher?.loginPhoto || '');
-    setCheckoutPhoto(teacher?.checkoutPhoto || '');
-    setOnDuty(Boolean(teacher?.onDuty));
-    if (teacher?.role === 'teacher') {
-      upsertFallbackTeacher(teacher);
-    }
-  }, [teacher]);
-
-  async function persistAttendance(nextFields) {
-    const mergedFields = {
-      ...nextFields,
-      attendanceRecords: mergeAttendanceRecords(teacher?.attendanceRecords, nextFields),
-    };
-
-    if (!teacherId) {
-      const fallbackTeacher = upsertFallbackTeacher(teacher, mergedFields);
-      onTeacherUpdate?.(fallbackTeacher);
-      return fallbackTeacher;
-    }
-
-    try {
-      const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mergedFields),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.message || 'Unable to update attendance.');
-      }
-
-      upsertFallbackTeacher(teacher, data);
-      onTeacherUpdate?.(data);
-
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if ((parsedUser.id || parsedUser._id) === teacherId) {
-          localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...data }));
-        }
-      }
-
-      return data;
-    } catch {
-      const fallbackTeacher = upsertFallbackTeacher(teacher, mergedFields);
-      onTeacherUpdate?.(fallbackTeacher);
-
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if ((parsedUser.id || parsedUser._id) === teacherId || parsedUser.email === teacher?.email) {
-          localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...fallbackTeacher }));
-        }
-      }
-
-      return fallbackTeacher;
-    }
-  }
-
-  async function uploadAttendancePhoto(photo, action) {
-    const [meta, content] = photo.split(',');
-    if (!meta || !content) {
-      throw new Error('Captured photo is invalid.');
-    }
-
-    const mimeMatch = meta.match(/data:(.*?);base64/);
-    const mimeType = mimeMatch?.[1] || 'image/jpeg';
-    const binary = atob(content);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-
-    const blob = new Blob([bytes], { type: mimeType });
-    const formData = new FormData();
-    formData.append('photo', blob, `${action}-${Date.now()}.jpg`);
-
-    try {
-      const response = await fetch(apiUrl('/api/auth/teachers/upload'), {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.photoUrl) {
-        throw new Error(data.message || 'Unable to upload photo.');
-      }
-
-      return data.photoUrl;
-    } catch {
-      return photo;
-    }
-  }
 
   return (
     <div style={styles.card}>
@@ -546,88 +203,17 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
         </div>
         <button
           style={{...styles.dutyBtn, ...(onDuty ? styles.dutyBtnOn : styles.dutyBtnOff)}}
-          onClick={async () => {
-            const nextOnDuty = !onDuty;
-            setOnDuty(nextOnDuty);
-            try {
-              await persistAttendance({ onDuty: nextOnDuty });
-              showToast(nextOnDuty ? '✅' : '🔴', nextOnDuty ? 'You are now marked On Duty' : 'Duty ended');
-            } catch (error) {
-              setOnDuty(!nextOnDuty);
-              showToast('⚠️', error.message || 'Unable to update duty status');
-            }
-          }}>
+          onClick={() => { setOnDuty(d => !d); showToast(onDuty ? '🔴' : '✅', onDuty ? 'Duty ended' : 'You are now marked On Duty'); }}>
           <span>{onDuty ? '✅' : '🟢'}</span> {onDuty ? 'On Duty — Active' : 'Mark On Duty'}
         </button>
-        {(resolvedCheckinPhoto || resolvedCheckoutPhoto) && (
-          <div style={styles.photoSection}>
-            <div style={styles.photoSectionTitle}>Attendance Photo Proof</div>
-            <div style={styles.photoGrid}>
-              <div style={styles.photoCard}>
-                <div style={styles.photoLabel}>Check In</div>
-                {resolvedCheckinPhoto ? (
-                  <a href={resolvedCheckinPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
-                    <img src={resolvedCheckinPhoto} alt="Check-in proof" style={styles.photoPreview} />
-                  </a>
-                ) : (
-                  <div style={styles.photoEmpty}>No check-in photo yet</div>
-                )}
-              </div>
-              <div style={styles.photoCard}>
-                <div style={styles.photoLabel}>Check Out</div>
-                {resolvedCheckoutPhoto ? (
-                  <a href={resolvedCheckoutPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
-                    <img src={resolvedCheckoutPhoto} alt="Check-out proof" style={styles.photoPreview} />
-                  </a>
-                ) : (
-                  <div style={styles.photoEmpty}>No check-out photo yet</div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
         <LocationPings />
       </div>
       {modal && (
-        <CameraModal action={modal} onClose={() => setModal(null)} initialPhoto={modal === 'checkin' ? checkinPhoto : checkoutPhoto}
-          onConfirm={async ({ time, photo }) => {
-            const currentAction = modal;
-            setSavingAction(currentAction);
-
-            try {
-              const uploadedPhotoUrl = await uploadAttendancePhoto(photo, currentAction);
-
-              if (currentAction === 'checkin') {
-                await persistAttendance({
-                  checkin: time,
-                  lastLogin: new Date().toISOString(),
-                  loginPhoto: uploadedPhotoUrl,
-                  status: 'present',
-                });
-                setCheckinTime(time);
-                setCheckinPhoto(uploadedPhotoUrl);
-              } else {
-                await persistAttendance({
-                  checkout: time,
-                  lastCheckout: new Date().toISOString(),
-                  checkoutPhoto: uploadedPhotoUrl,
-                });
-                setCheckoutTime(time);
-                setCheckoutPhoto(uploadedPhotoUrl);
-              }
-
-              showToast(currentAction === 'checkin' ? '📍' : '👋', (currentAction === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + time);
-            } catch (error) {
-              showToast('⚠️', error.message || 'Unable to save attendance');
-            } finally {
-              setSavingAction('');
-            }
+        <CameraModal action={modal} onClose={() => setModal(null)}
+          onConfirm={(t) => {
+            if (modal === 'checkin') setCheckinTime(t); else setCheckoutTime(t);
+            showToast(modal === 'checkin' ? '📍' : '👋', (modal === 'checkin' ? 'Check-in' : 'Check-out') + ' recorded at ' + t);
           }} />
-      )}
-      {savingAction && (
-        <div style={styles.savingBanner}>
-          Uploading {savingAction} photo...
-        </div>
       )}
     </div>
   );
@@ -658,32 +244,15 @@ function AnnouncementList({ items }) {
 }
 
 // ─── LEAVE CARD ────────────────────────────────────────────
-function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
+function LeaveCard({ defaultOpen, showToast }) {
   const [open, setOpen] = useState(defaultOpen || false);
   useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
-  const [form, setForm] = useState({
-    type: 'Sick Leave',
-    halfDay: 'Full Day',
-    fromDate: '',
-    toDate: '',
-    reason: '',
-  });
 
-  function formatLeaveDates(fromDate, toDate) {
-    if (!fromDate) return 'Date not set';
-    const fromLabel = new Date(`${fromDate}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-    if (!toDate || toDate === fromDate) return fromLabel;
-    const toLabel = new Date(`${toDate}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-    return `${fromLabel} – ${toLabel}`;
-  }
-
-  const leaves = normaliseLeaveRequests(teacher?.leaveRequests).map((request) => ({
-    type: request.type,
-    dates: request.dates,
-    status: request.status === 'approved' ? 'Approved' : request.status === 'rejected' ? 'Rejected' : 'Pending',
-    color: request.status === 'approved' ? '#059669' : request.status === 'rejected' ? '#dc2626' : '#d97706',
-    bg: request.status === 'approved' ? 'rgba(5,150,105,.1)' : request.status === 'rejected' ? 'rgba(220,38,38,.1)' : 'rgba(217,119,6,.1)',
-  }));
+  const leaves = [
+    { type: 'Sick Leave', dates: 'Mar 5, 2025', status: 'Approved', color: '#059669', bg: 'rgba(5,150,105,.1)' },
+    { type: 'Casual Leave', dates: 'Mar 12–13', status: 'Approved', color: '#059669', bg: 'rgba(5,150,105,.1)' },
+    { type: 'Personal Leave', dates: 'Mar 28, 2025', status: 'Pending', color: '#d97706', bg: 'rgba(217,119,6,.1)' },
+  ];
 
   return (
     <div style={styles.card}>
@@ -716,68 +285,23 @@ function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>New Leave Request</div>
             <div style={styles.formRow}>
               <div style={styles.fgl}><label style={styles.fglLabel}>Leave Type</label>
-                <select style={styles.fglInput} value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}><option>Sick Leave</option><option>Casual Leave</option><option>Personal Leave</option><option>Maternity / Paternity</option><option>Emergency Leave</option></select></div>
+                <select style={styles.fglInput}><option>Sick Leave</option><option>Casual Leave</option><option>Personal Leave</option><option>Maternity / Paternity</option><option>Emergency Leave</option></select></div>
               <div style={styles.fgl}><label style={styles.fglLabel}>Half Day?</label>
-                <select style={styles.fglInput} value={form.halfDay} onChange={(event) => setForm((current) => ({ ...current, halfDay: event.target.value }))}><option>Full Day</option><option>First Half</option><option>Second Half</option></select></div>
+                <select style={styles.fglInput}><option>Full Day</option><option>First Half</option><option>Second Half</option></select></div>
             </div>
             <div style={styles.formRow}>
-              <div style={styles.fgl}><label style={styles.fglLabel}>From Date</label><input type="date" style={styles.fglInput} value={form.fromDate} onChange={(event) => setForm((current) => ({ ...current, fromDate: event.target.value }))} /></div>
-              <div style={styles.fgl}><label style={styles.fglLabel}>To Date</label><input type="date" style={styles.fglInput} value={form.toDate} onChange={(event) => setForm((current) => ({ ...current, toDate: event.target.value }))} /></div>
+              <div style={styles.fgl}><label style={styles.fglLabel}>From Date</label><input type="date" style={styles.fglInput} /></div>
+              <div style={styles.fgl}><label style={styles.fglLabel}>To Date</label><input type="date" style={styles.fglInput} /></div>
             </div>
             <div style={{...styles.fgl, marginBottom: 14}}>
               <label style={styles.fglLabel}>Reason</label>
-              <textarea style={{...styles.fglInput, resize: 'vertical', minHeight: 70}} placeholder="Briefly describe the reason..." value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} />
+              <textarea style={{...styles.fglInput, resize: 'vertical', minHeight: 70}} placeholder="Briefly describe the reason..." />
             </div>
             <div style={{...styles.fgl, marginBottom: 14}}>
               <label style={styles.fglLabel}>Document (optional)</label>
               <input type="file" accept=".pdf,.jpg,.png" style={styles.fglInput} />
             </div>
-            <button style={styles.submitBtn} onClick={async () => {
-              if (!form.fromDate || !form.reason.trim()) {
-                showToast('⚠️', 'Add dates and a reason before submitting');
-                return;
-              }
-
-              const nextLeave = {
-                type: `${form.type}${form.halfDay !== 'Full Day' ? ` (${form.halfDay})` : ''}`,
-                dates: formatLeaveDates(form.fromDate, form.toDate || form.fromDate),
-                status: 'Pending',
-                color: '#d97706',
-                bg: 'rgba(217,119,6,.1)',
-              };
-              const nextRequest = {
-                id: `leave-request-${Date.now()}`,
-                type: nextLeave.type,
-                dates: nextLeave.dates,
-                status: 'pending',
-                reason: form.reason.trim(),
-                createdAtLabel: 'Just now',
-              };
-              const nextLeaveRequests = [nextRequest, ...normaliseLeaveRequests(teacher?.leaveRequests)];
-              try {
-                const response = await fetch(apiUrl(`/api/auth/teachers/${teacher?.id || teacher?._id}`), {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ leaveRequests: nextLeaveRequests }),
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                  throw new Error(data.message || 'Unable to submit leave request.');
-                }
-                onTeacherUpdate?.(data);
-                setForm({
-                  type: 'Sick Leave',
-                  halfDay: 'Full Day',
-                  fromDate: '',
-                  toDate: '',
-                  reason: '',
-                });
-                showToast('📝', 'Leave request submitted successfully');
-                setOpen(false);
-              } catch (error) {
-                showToast('⚠️', error.message || 'Unable to submit leave request');
-              }
-            }}>
+            <button style={styles.submitBtn} onClick={() => { showToast('📝', 'Leave request submitted successfully'); setOpen(false); }}>
               Submit Leave Request
             </button>
           </div>
@@ -788,11 +312,10 @@ function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
 }
 
 // ─── CALENDAR ──────────────────────────────────────────────
-function Calendar({ teacher }) {
+function Calendar() {
   const NOW = new Date();
-  const attendanceMap = buildAttendanceMap(teacher, NOW);
-  const [cY, setCY] = useState(NOW.getFullYear());
-  const [cM, setCM] = useState(NOW.getMonth());
+  const [cY, setCY] = useState(2025);
+  const [cM, setCM] = useState(2);
   const [dayDetail, setDayDetail] = useState(null);
 
   const prevMonth = () => { if (cM === 0) { setCM(11); setCY(y => y - 1); } else setCM(m => m - 1); };
@@ -806,7 +329,7 @@ function Calendar({ teacher }) {
   for (let i = fd - 1; i >= 0; i--) cells.push({ day: pd - i, type: 'other' });
   for (let d = 1; d <= dim; d++) {
     const key = cY + '-' + (cM + 1) + '-' + d;
-    const data = attendanceMap[key];
+    const data = attn[key];
     const today = d === NOW.getDate() && cM === NOW.getMonth() && cY === NOW.getFullYear();
     cells.push({ day: d, type: 'current', data, today, key });
   }
@@ -912,7 +435,7 @@ function EmptySection({ icon, title, msg }) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────
-function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
+function Dashboard({ showToast, openLeave }) {
   return (
     <div>
       <div style={styles.topbar}>
@@ -925,10 +448,10 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
           <div style={styles.notifBtn}>🔔<div style={styles.notifDot}></div></div>
         </div>
       </div>
-      <StatsRow teacher={teacher} />
+      <StatsRow />
       <div style={styles.grid2}>
         <div style={styles.gridLeft}>
-          <AttendanceCard teacher={teacher} showToast={showToast} onTeacherUpdate={onTeacherUpdate} />
+          <AttendanceCard showToast={showToast} />
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <div style={styles.cardTitle}>Announcements</div>
@@ -936,94 +459,19 @@ function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
             </div>
             <AnnouncementList items={announcements} />
           </div>
-          <LeaveCard defaultOpen={openLeave} showToast={showToast} teacher={teacher} onTeacherUpdate={onTeacherUpdate} />
+          <LeaveCard defaultOpen={openLeave} showToast={showToast} />
         </div>
-        <Calendar teacher={teacher} />
+        <Calendar />
       </div>
-    </div>
-  );
-}
-
-function TimetableSection({ teacher }) {
-  const initialMonth = (() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  })();
-  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
-  const allTimetable = [...normaliseTimetable(teacher?.timetable)]
-    .sort((a, b) => `${a.date || ''}-${a.timeSlot || a.period || ''}`.localeCompare(`${b.date || ''}-${b.timeSlot || b.period || ''}`));
-  const monthTimetable = allTimetable
-    .filter((entry) => !selectedMonth || (entry.date && entry.date.startsWith(selectedMonth)))
-  const timetable = monthTimetable.length > 0 ? monthTimetable : allTimetable;
-
-  return (
-    <div>
-      <div style={styles.topbar}>
-        <div>
-          <div style={styles.pageTitle}>Timetable</div>
-          <div style={styles.pageSub}>Monthly class schedule</div>
-        </div>
-        <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} style={styles.monthInput} />
-      </div>
-      <div style={styles.card}>
-        <div style={styles.cardHeader}>
-          <div style={styles.cardTitle}>Assigned Periods</div>
-        </div>
-        <div style={styles.cardBody}>
-          {monthTimetable.length === 0 && allTimetable.length > 0 && (
-            <div style={styles.timetableHint}>No entries for the selected month. Showing all assigned timetable entries instead.</div>
-          )}
-          {timetable.length > 0 ? (
-            <div style={styles.timetableList}>
-              {timetable.map((entry, index) => (
-                <div key={`${entry.date || entry.day}-${entry.timeSlot || entry.period}-${index}`} style={styles.timetableRow}>
-                  <div>
-                    <div style={styles.timetableDay}>
-                      {entry.date
-                        ? new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })
-                        : entry.day}
-                    </div>
-                    <div style={styles.timetableMeta}>{entry.timeSlot || entry.period} · {entry.subject}</div>
-                  </div>
-                  <div style={styles.timetableRoom}>{entry.room || 'Room not set'}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={styles.timetableEmpty}>
-              No timetable slots were assigned for this month yet.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LeaveSection({ showToast, teacher, onTeacherUpdate }) {
-  return (
-    <div>
-      <div style={styles.topbar}>
-        <div>
-          <div style={styles.pageTitle}>Leave Requests</div>
-          <div style={styles.pageSub}>Apply for leave and review submitted requests</div>
-        </div>
-      </div>
-      <LeaveCard defaultOpen showToast={showToast} teacher={teacher} onTeacherUpdate={onTeacherUpdate} />
     </div>
   );
 }
 
 // ─── APP ───────────────────────────────────────────────────
-export default function TeacherDashboard({ teacher, onLogout }) {
-  const [teacherState, setTeacherState] = useState(teacher);
+export default function TeacherDashboard() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [openLeave, setOpenLeave] = useState(false);
-
-  useEffect(() => {
-    setTeacherState(teacher);
-  }, [teacher]);
 
   function showToast(icon, msg) {
     setToast({ icon, msg });
@@ -1031,8 +479,9 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   }
 
   function handleApplyLeave() {
-    setActiveSection('leave');
+    setActiveSection('dashboard');
     setOpenLeave(true);
+    setTimeout(() => setOpenLeave(false), 100);
   }
 
   return (
@@ -1046,13 +495,12 @@ export default function TeacherDashboard({ teacher, onLogout }) {
         .status-dot-anim { animation: pulse 2s infinite; }
         input[type="date"], select, textarea, input[type="file"] { font-family: 'DM Sans', sans-serif; }
       `}</style>
-      <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={teacherState} onLogout={onLogout} />
+      <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} />
       <main style={styles.main}>
-        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={teacherState} onTeacherUpdate={setTeacherState} />}
+        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
-        {activeSection === 'timetable' && <TimetableSection teacher={teacherState} />}
-        {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={teacherState} onTeacherUpdate={setTeacherState} />}
+        {activeSection === 'timetable' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Timetable</div><div style={styles.pageSub}>Weekly class schedule</div></div></div><EmptySection icon="📋" title="Timetable coming soon" msg="Your weekly teaching schedule will be shown here once configured by the admin." /></>}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
           <div style={styles.card}><AnnouncementList items={[...announcements, { icon: '📌', iconType: 'info', title: 'Parent-Teacher Meeting — March 29', body: 'All class teachers must be present. Individual schedules will be shared by the coordinator.', time: 'Mar 15 · From: Admin Office' }]} /></div></>
@@ -1090,7 +538,6 @@ const styles = {
   dateChip: { background: '#fff', border: '1px solid #e4e2f0', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: '#6b6b8a' },
   notifBtn: { width: 38, height: 38, borderRadius: 10, background: '#fff', border: '1px solid #e4e2f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, position: 'relative' },
   notifDot: { position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: '50%', background: '#dc2626', border: '1.5px solid #fff' },
-  monthInput: { background: '#fff', border: '1px solid #e4e2f0', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: '#6b6b8a' },
   statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 },
   statCard: { background: '#fff', borderRadius: 16, border: '1px solid #e4e2f0', padding: '18px 20px', position: 'relative', overflow: 'hidden' },
   statLabel: { fontSize: 12, color: '#6b6b8a', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' },
@@ -1109,14 +556,6 @@ const styles = {
   dutyBtnOff: { background: '#4f46e5', color: '#fff' },
   dutyBtnOn: { background: 'rgba(5,150,105,.12)', color: '#059669', border: '1.5px solid #059669' },
   dutyBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(5,150,105,.12)', color: '#059669', borderRadius: 20, padding: '4px 10px', fontSize: 12, fontWeight: 500 },
-  photoSection: { marginTop: 18, marginBottom: 18 },
-  photoSectionTitle: { fontSize: 13, fontWeight: 700, color: '#1a1a2e', marginBottom: 10 },
-  photoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  photoCard: { border: '1px solid #e4e2f0', borderRadius: 12, background: '#fafafe', overflow: 'hidden' },
-  photoLabel: { padding: '10px 12px', fontSize: 12, fontWeight: 700, color: '#4338ca', background: '#eef2ff', borderBottom: '1px solid #e4e2f0' },
-  photoLink: { display: 'block', textDecoration: 'none' },
-  photoPreview: { width: '100%', height: 160, objectFit: 'cover', display: 'block', background: '#111827' },
-  photoEmpty: { height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, textAlign: 'center', fontSize: 12, color: '#6b6b8a', background: '#f8fafc' },
   locationRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e4e2f0' },
   locTime: { fontSize: 12, color: '#6b6b8a', width: 60, flexShrink: 0 },
   locBadge: { fontSize: 12, padding: '3px 10px', borderRadius: 20, fontWeight: 500 },
@@ -1149,25 +588,11 @@ const styles = {
   modal: { background: '#fff', borderRadius: 16, padding: 28, width: 360, maxWidth: '94vw', position: 'relative' },
   modalTitle: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 600, marginBottom: 8 },
   modalSub: { fontSize: 13, color: '#6b6b8a', marginBottom: 20 },
-  cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, position: 'relative', overflow: 'hidden' },
-  cameraImage: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 },
-  cameraImageHidden: { position: 'absolute', opacity: 0, pointerEvents: 'none' },
-  cameraPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 48 },
-  cameraError: { fontSize: 12, color: '#dc2626', textAlign: 'center', marginTop: -6, marginBottom: 12 },
-  cameraStatus: { fontSize: 12, color: '#6b6b8a', textAlign: 'center', marginTop: -6, marginBottom: 12 },
+  cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 },
   cameraHint: { fontSize: 12, color: '#6b6b8a', textAlign: 'center', marginBottom: 16 },
   modalBtns: { display: 'flex', gap: 10 },
   modalBtn: { flex: 1, padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid #e4e2f0', background: '#f0eff8', color: '#1a1a2e' },
   modalBtnPrimary: { background: '#4f46e5', color: '#fff', borderColor: '#4f46e5' },
-  modalBtnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
-  savingBanner: { marginTop: 14, padding: '10px 12px', borderRadius: 10, background: 'rgba(79,70,229,.08)', color: '#4338ca', fontSize: 13, fontWeight: 600, textAlign: 'center' },
-  timetableList: { display: 'flex', flexDirection: 'column', gap: 12 },
-  timetableRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, border: '1px solid #e4e2f0', borderRadius: 12, padding: '14px 16px', background: '#fff' },
-  timetableDay: { fontSize: 13, fontWeight: 700, color: '#1a1a2e' },
-  timetableMeta: { marginTop: 4, fontSize: 13, color: '#6b6b8a' },
-  timetableRoom: { fontSize: 13, fontWeight: 600, color: '#4f46e5' },
-  timetableEmpty: { border: '1px dashed #d8d4eb', borderRadius: 12, padding: '18px', background: '#f7f6fd', color: '#6b6b8a', fontSize: 13 },
-  timetableHint: { marginBottom: 14, borderRadius: 10, padding: '10px 12px', background: '#eef2ff', color: '#4338ca', fontSize: 12, fontWeight: 600 },
   modalClose: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b6b8a' },
   emptyState: { textAlign: 'center', padding: '80px 40px' },
   emptyTitle: { fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: '#1a1a2e', marginBottom: 10 },

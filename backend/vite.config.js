@@ -10,10 +10,7 @@ export default defineConfig({
     }
   },
   test: {
-    include: ["src/**/*.{test,spec}.{js,jsx,ts,tsx}"],
-    exclude: ["backend/**", "frontend/**", "dist/**", "node_modules/**"],
     globals: true,
     environment: 'jsdom',
-    passWithNoTests: true,
   },
 })

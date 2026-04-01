@@ -34,6 +34,17 @@ const teacherSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    attendanceRecords: {
+      type: [
+        {
+          date: { type: String, default: "" },
+          status: { type: String, default: "absent" },
+          checkin: { type: String, default: "–" },
+          checkout: { type: String, default: "–" },
+        },
+      ],
+      default: [],
+    },
     leaveRequests: {
       type: [
         {

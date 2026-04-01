@@ -4,9 +4,6 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# local deployment metadata
-frontend/.vercel/
 lerna-debug.log*
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
