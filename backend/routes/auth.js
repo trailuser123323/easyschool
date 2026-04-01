@@ -46,6 +46,42 @@ function getTodayKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function isSameCalendarDay(value, date = new Date()) {
+  if (!value) return false;
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  return getTodayKey(parsed) === getTodayKey(date);
+}
+
+function getAttendanceSnapshot(teacher, date = new Date()) {
+  const today = getTodayKey(date);
+  const records = Array.isArray(teacher?.attendanceRecords) ? teacher.attendanceRecords : [];
+  const record = records.find((entry) => entry?.date === today);
+
+  if (!record) {
+    return {
+      status: "absent",
+      checkin: "–",
+      checkout: "–",
+      hasCheckin: false,
+      hasCheckout: false,
+    };
+  }
+
+  const checkin = record.checkin || "–";
+  const checkout = record.checkout || "–";
+
+  return {
+    status: record.status || "absent",
+    checkin,
+    checkout,
+    hasCheckin: checkin !== "–",
+    hasCheckout: checkout !== "–",
+  };
+}
+
 function updateAttendanceRecord(teacher, updates) {
   const records = Array.isArray(teacher.attendanceRecords) ? [...teacher.attendanceRecords] : [];
   const today = getTodayKey();
@@ -70,6 +106,21 @@ function updateAttendanceRecord(teacher, updates) {
 function serializeTeacher(teacher) {
   const userData = teacher.toObject ? teacher.toObject() : { ...teacher };
   delete userData.password;
+  const todayAttendance = getAttendanceSnapshot(userData);
+
+  userData.status = todayAttendance.status;
+  userData.checkin = todayAttendance.checkin;
+  userData.checkout = todayAttendance.checkout;
+  userData.onDuty = todayAttendance.status === "present" ? Boolean(userData.onDuty) : false;
+  userData.loginPhoto = todayAttendance.hasCheckin ? userData.loginPhoto || "" : "";
+  userData.checkoutPhoto = todayAttendance.hasCheckout ? userData.checkoutPhoto || "" : "";
+  userData.lastLogin = todayAttendance.hasCheckin && isSameCalendarDay(userData.lastLogin)
+    ? userData.lastLogin
+    : null;
+  userData.lastCheckout = todayAttendance.hasCheckout && isSameCalendarDay(userData.lastCheckout)
+    ? userData.lastCheckout
+    : null;
+
   return userData;
 }
 

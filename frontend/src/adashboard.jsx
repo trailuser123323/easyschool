@@ -5,6 +5,7 @@ import TeacherTracking from './components/TeacherTracking';
 import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
+import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from './attendance';
 import { getFallbackTeachers, removeFallbackTeacher, saveFallbackTeachers } from './demoData';
 
 function formatMonthValue(value) {
@@ -48,28 +49,30 @@ function formatCheckin(lastLogin, fallback = '–') {
 }
 
 function normaliseTeacher(teacher, index) {
+  const todayTeacher = normaliseTeacherForToday(teacher);
+
   return {
-    id: teacher.id ?? teacher._id ?? index + 1,
-    name: teacher.name,
-    email: teacher.email || '',
-    initials: teacher.initials || 'T',
-    subject: teacher.subject || 'General',
-    class: teacher.class || teacher.className || '–',
-    status: teacher.status || (teacher.lastLogin ? 'present' : 'absent'),
-    checkin: formatCheckin(teacher.lastLogin, teacher.checkin || '–'),
-    checkout: teacher.checkout || '–',
-    onDuty: Boolean(teacher.onDuty),
-    absent: teacher.absent ?? 0,
-    leave: teacher.leave ?? 0,
-    rate: teacher.rate || '0%',
-    color: teacher.color || '#4f46e5',
-    lastLogin: teacher.lastLogin || null,
-    loginPhoto: teacher.loginPhoto || '',
-    checkoutPhoto: teacher.checkoutPhoto || '',
-    timetable: normaliseTimetableEntries(teacher.timetable),
-    attendanceRecords: Array.isArray(teacher.attendanceRecords) ? teacher.attendanceRecords : [],
-    leaveRequests: Array.isArray(teacher.leaveRequests) ? teacher.leaveRequests : [],
-    updatedAt: teacher.updatedAt || 0,
+    id: todayTeacher.id ?? todayTeacher._id ?? index + 1,
+    name: todayTeacher.name,
+    email: todayTeacher.email || '',
+    initials: todayTeacher.initials || 'T',
+    subject: todayTeacher.subject || 'General',
+    class: todayTeacher.class || todayTeacher.className || '–',
+    status: todayTeacher.status || 'absent',
+    checkin: todayTeacher.checkin || formatCheckin(todayTeacher.lastLogin, '–'),
+    checkout: todayTeacher.checkout || '–',
+    onDuty: Boolean(todayTeacher.onDuty),
+    absent: todayTeacher.absent ?? 0,
+    leave: todayTeacher.leave ?? 0,
+    rate: todayTeacher.rate || '0%',
+    color: todayTeacher.color || '#4f46e5',
+    lastLogin: todayTeacher.lastLogin || null,
+    loginPhoto: todayTeacher.loginPhoto || '',
+    checkoutPhoto: todayTeacher.checkoutPhoto || '',
+    timetable: normaliseTimetableEntries(todayTeacher.timetable),
+    attendanceRecords: Array.isArray(todayTeacher.attendanceRecords) ? todayTeacher.attendanceRecords : [],
+    leaveRequests: Array.isArray(todayTeacher.leaveRequests) ? todayTeacher.leaveRequests : [],
+    updatedAt: todayTeacher.updatedAt || 0,
   };
 }
 
@@ -304,6 +307,7 @@ function TeacherAccounts({ teachers, onDeleteTeacher, deletingTeacherId }) {
 export default function AdminDashboard({ user, onLogout }) {
   const [activeSection, setActiveSection] = useState('tracking');
   const [teachers, setTeachers] = useState([]);
+  const [todayKey, setTodayKey] = useState(() => getDateKey());
   const [teacherForm, setTeacherForm] = useState({
     name: '',
     email: '',
@@ -378,6 +382,18 @@ export default function AdminDashboard({ user, onLogout }) {
       window.removeEventListener('focus', handleFocus);
     };
   }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setTodayKey(getDateKey());
+    }, getDelayUntilNextDay());
+
+    return () => window.clearTimeout(timeoutId);
+  }, [todayKey]);
+
+  useEffect(() => {
+    setTeachers((current) => current.map((teacher, index) => normaliseTeacher(teacher, index)));
+  }, [todayKey]);
 
   const showToast = (msg) => {
     setToast({ show: true, msg });

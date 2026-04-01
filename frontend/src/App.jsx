@@ -4,6 +4,7 @@ import Homepage from "./homepage";
 import Login from "./login";
 import TeacherDashboard from "./TeacherDashboard";
 import AdminDashboard from "./adashboard";
+import { normaliseTeacherForToday } from "./attendance";
 import "./App.css";
 
 function AppRoutes() {
@@ -11,7 +12,7 @@ function AppRoutes() {
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
+      return stored ? normaliseTeacherForToday(JSON.parse(stored)) : null;
     } catch { return null; }
   });
 
@@ -23,7 +24,7 @@ function AppRoutes() {
   };
 
   const handleLogin = (userData) => {
-    setUser(userData);
+    setUser(normaliseTeacherForToday(userData));
   };
 
   return (

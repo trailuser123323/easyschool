@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { apiUrl } from "./api";
+import { apiUrl, resolveApiAssetUrl } from "./api";
+import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from "./attendance";
 import { upsertFallbackTeacher } from "./demoData";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -15,14 +16,6 @@ function fmtDate(d) {
   const dy = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const mo = MONTHS;
   return dy[d.getDay()] + ', ' + d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear();
-}
-
-function resolvePhotoUrl(photoUrl) {
-  if (!photoUrl) return "";
-  if (photoUrl.startsWith("data:")) return photoUrl;
-  if (/^https?:\/\//i.test(photoUrl)) return photoUrl;
-  if (photoUrl.startsWith("/")) return apiUrl(photoUrl);
-  return apiUrl(`/${photoUrl}`);
 }
 
 function formatTeacherRole(teacher) {
@@ -421,8 +414,8 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
   const [onDuty, setOnDuty] = useState(Boolean(teacher?.onDuty));
   const [modal, setModal] = useState(null);
   const [savingAction, setSavingAction] = useState("");
-  const resolvedCheckinPhoto = resolvePhotoUrl(checkinPhoto);
-  const resolvedCheckoutPhoto = resolvePhotoUrl(checkoutPhoto);
+  const resolvedCheckinPhoto = resolveApiAssetUrl(checkinPhoto);
+  const resolvedCheckoutPhoto = resolveApiAssetUrl(checkoutPhoto);
 
   useEffect(() => {
     setCheckinTime(teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : null);
@@ -1016,14 +1009,29 @@ function LeaveSection({ showToast, teacher, onTeacherUpdate }) {
 
 // ─── APP ───────────────────────────────────────────────────
 export default function TeacherDashboard({ teacher, onLogout }) {
-  const [teacherState, setTeacherState] = useState(teacher);
+  const [teacherState, setTeacherState] = useState(() => normaliseTeacherForToday(teacher));
+  const [todayKey, setTodayKey] = useState(() => getDateKey());
   const [activeSection, setActiveSection] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [openLeave, setOpenLeave] = useState(false);
 
   useEffect(() => {
-    setTeacherState(teacher);
+    setTeacherState(normaliseTeacherForToday(teacher));
   }, [teacher]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setTodayKey(getDateKey());
+    }, getDelayUntilNextDay());
+
+    return () => window.clearTimeout(timeoutId);
+  }, [todayKey]);
+
+  useEffect(() => {
+    setTeacherState((current) => normaliseTeacherForToday(current));
+  }, [todayKey]);
+
+  const currentTeacher = normaliseTeacherForToday(teacherState);
 
   function showToast(icon, msg) {
     setToast({ icon, msg });
@@ -1046,13 +1054,13 @@ export default function TeacherDashboard({ teacher, onLogout }) {
         .status-dot-anim { animation: pulse 2s infinite; }
         input[type="date"], select, textarea, input[type="file"] { font-family: 'DM Sans', sans-serif; }
       `}</style>
-      <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={teacherState} onLogout={onLogout} />
+      <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={currentTeacher} onLogout={onLogout} />
       <main style={styles.main}>
-        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={teacherState} onTeacherUpdate={setTeacherState} />}
+        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
-        {activeSection === 'timetable' && <TimetableSection teacher={teacherState} />}
-        {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={teacherState} onTeacherUpdate={setTeacherState} />}
+        {activeSection === 'timetable' && <TimetableSection teacher={currentTeacher} />}
+        {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
           <div style={styles.card}><AnnouncementList items={[...announcements, { icon: '📌', iconType: 'info', title: 'Parent-Teacher Meeting — March 29', body: 'All class teachers must be present. Individual schedules will be shared by the coordinator.', time: 'Mar 15 · From: Admin Office' }]} /></div></>

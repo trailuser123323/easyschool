@@ -7,3 +7,11 @@ export const API_BASE_URL = (
 export function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
 }
+
+export function resolveApiAssetUrl(path) {
+  if (!path) return "";
+  if (path.startsWith("data:")) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/")) return apiUrl(path);
+  return apiUrl(`/${path}`);
+}

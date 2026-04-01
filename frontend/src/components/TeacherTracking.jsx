@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { resolveApiAssetUrl } from '../api';
 
 export default function TeacherTracking({ teachers }) {
   const [selectedTeacher, setSelectedTeacher] = useState(null);
@@ -118,7 +119,7 @@ export default function TeacherTracking({ teachers }) {
                 {selectedTeacher.loginPhoto ? (
                   <img
                     className="teacher-photo-image"
-                    src={selectedTeacher.loginPhoto}
+                    src={resolveApiAssetUrl(selectedTeacher.loginPhoto)}
                     alt={`${selectedTeacher.name} check-in`}
                   />
                 ) : (
@@ -130,7 +131,7 @@ export default function TeacherTracking({ teachers }) {
                 {selectedTeacher.checkoutPhoto ? (
                   <img
                     className="teacher-photo-image"
-                    src={selectedTeacher.checkoutPhoto}
+                    src={resolveApiAssetUrl(selectedTeacher.checkoutPhoto)}
                     alt={`${selectedTeacher.name} check-out`}
                   />
                 ) : (
