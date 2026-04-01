@@ -691,16 +691,14 @@ function AnnouncementPopup({ announcement, onClose }) {
   if (!announcement) return null;
 
   return (
-    <div style={styles.announcementPopupOverlay} onClick={onClose}>
-      <div style={styles.announcementPopup} onClick={(event) => event.stopPropagation()}>
+      <div style={styles.announcementPopup}>
         <button style={styles.modalClose} onClick={onClose}>✕</button>
         <div style={styles.announcementPopupEyebrow}>New Announcement</div>
         <div style={styles.announcementPopupTitle}>{announcement.title}</div>
         <div style={styles.announcementPopupBody}>{announcement.body}</div>
         <div style={styles.announcementPopupTime}>{announcement.time}</div>
-        <button style={styles.submitBtn} onClick={onClose}>Close</button>
+        <button style={styles.announcementPopupBtn} onClick={onClose}>Close</button>
       </div>
-    </div>
   );
 }
 
@@ -1332,12 +1330,12 @@ const styles = {
   modal: { background: '#fff', borderRadius: 16, padding: 28, width: 360, maxWidth: '94vw', position: 'relative' },
   modalTitle: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 600, marginBottom: 8 },
   modalSub: { fontSize: 13, color: '#6b6b8a', marginBottom: 20 },
-  announcementPopupOverlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: 20 },
-  announcementPopup: { background: '#fff', borderRadius: 20, padding: 28, width: 420, maxWidth: '94vw', position: 'relative', boxShadow: '0 24px 80px rgba(15,23,42,.28)' },
+  announcementPopup: { position: 'fixed', right: 24, bottom: 24, background: '#fff', borderRadius: 18, padding: '18px 18px 16px', width: 320, maxWidth: 'calc(100vw - 32px)', zIndex: 1200, boxShadow: '0 18px 48px rgba(15,23,42,.22)', border: '1px solid #e4e2f0' },
   announcementPopupEyebrow: { fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#4f46e5', marginBottom: 10 },
-  announcementPopupTitle: { fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: '#1a1a2e', marginBottom: 10, paddingRight: 20 },
-  announcementPopupBody: { fontSize: 14, lineHeight: 1.7, color: '#4b5563', marginBottom: 12 },
-  announcementPopupTime: { fontSize: 12, color: '#6b7280', marginBottom: 18 },
+  announcementPopupTitle: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 600, color: '#1a1a2e', marginBottom: 8, paddingRight: 20, lineHeight: 1.2 },
+  announcementPopupBody: { fontSize: 13, lineHeight: 1.6, color: '#4b5563', marginBottom: 10 },
+  announcementPopupTime: { fontSize: 11, color: '#6b7280', marginBottom: 14 },
+  announcementPopupBtn: { background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' },
   cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, position: 'relative', overflow: 'hidden' },
   cameraImage: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 },
   cameraImageHidden: { position: 'absolute', opacity: 0, pointerEvents: 'none' },
