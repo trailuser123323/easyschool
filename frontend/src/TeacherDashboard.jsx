@@ -1007,6 +1007,66 @@ function LeaveSection({ showToast, teacher, onTeacherUpdate }) {
   );
 }
 
+function AttendanceHistorySection({ teacher }) {
+  const records = Array.isArray(teacher?.attendanceRecords)
+    ? [...teacher.attendanceRecords].sort((left, right) => (right.date || '').localeCompare(left.date || ''))
+    : [];
+
+  return (
+    <div>
+      <div style={styles.topbar}>
+        <div>
+          <div style={styles.pageTitle}>Attendance</div>
+          <div style={styles.pageSub}>Calendar view and recent attendance history</div>
+        </div>
+        <div style={styles.dateChip}>{fmtDate(new Date())}</div>
+      </div>
+
+      <div style={styles.grid2}>
+        <div style={styles.gridLeft}>
+          <div style={styles.card}>
+            <div style={styles.cardHeader}>
+              <div style={styles.cardTitle}>Recent Records</div>
+              <span style={{ fontSize: 12, color: '#6b6b8a' }}>{records.length} saved day{records.length === 1 ? '' : 's'}</span>
+            </div>
+            <div style={styles.cardBody}>
+              {records.length > 0 ? (
+                <div style={styles.attendanceList}>
+                  {records.map((record) => {
+                    const statusColor = record.status === 'present' ? '#059669' : record.status === 'leave' ? '#d97706' : '#dc2626';
+                    const dateLabel = record.date
+                      ? new Date(`${record.date}T00:00:00`).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+                      : 'Unknown date';
+
+                    return (
+                      <div key={`${record.date}-${record.checkin}-${record.checkout}`} style={styles.attendanceRow}>
+                        <div>
+                          <div style={styles.attendanceDate}>{dateLabel}</div>
+                          <div style={styles.attendanceMeta}>
+                            Check-in: <b style={{ color: '#1a1a2e' }}>{record.checkin || '–'}</b>
+                            {' · '}
+                            Check-out: <b style={{ color: '#1a1a2e' }}>{record.checkout || '–'}</b>
+                          </div>
+                        </div>
+                        <div style={{ ...styles.attendanceBadge, color: statusColor, background: `${statusColor}1A` }}>
+                          {record.status === 'present' ? 'Present' : record.status === 'leave' ? 'Leave' : 'Absent'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={styles.timetableEmpty}>No attendance records yet. Your check-ins and check-outs will appear here.</div>
+              )}
+            </div>
+          </div>
+        </div>
+        <Calendar teacher={teacher} />
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ───────────────────────────────────────────────────
 export default function TeacherDashboard({ teacher, onLogout }) {
   const [teacherState, setTeacherState] = useState(() => normaliseTeacherForToday(teacher));
@@ -1058,7 +1118,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
       <main style={styles.main}>
         {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
-        {activeSection === 'attendance' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Attendance</div><div style={styles.pageSub}>Full attendance history</div></div></div><EmptySection icon="📅" title="Full history coming soon" msg="Detailed attendance logs and reports will appear here. Use the dashboard calendar to view monthly records for now." /></>}
+        {activeSection === 'attendance' && <AttendanceHistorySection teacher={currentTeacher} />}
         {activeSection === 'timetable' && <TimetableSection teacher={currentTeacher} />}
         {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'announcements' && (
@@ -1149,6 +1209,11 @@ const styles = {
   fglLabel: { fontSize: 12, fontWeight: 500, color: '#6b6b8a', textTransform: 'uppercase', letterSpacing: '.04em' },
   fglInput: { border: '1px solid #e4e2f0', borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#1a1a2e', background: '#f0eff8', outline: 'none', width: '100%' },
   submitBtn: { background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 500, cursor: 'pointer', width: '100%' },
+  attendanceList: { display: 'flex', flexDirection: 'column', gap: 12 },
+  attendanceRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid #e4e2f0', background: '#fafafe' },
+  attendanceDate: { fontSize: 14, fontWeight: 600, color: '#1a1a2e', marginBottom: 4 },
+  attendanceMeta: { fontSize: 12, color: '#6b6b8a' },
+  attendanceBadge: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 88, padding: '7px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700 },
   calGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 },
   calDayLabel: { fontSize: 10, color: '#6b6b8a', textAlign: 'center', fontWeight: 500, letterSpacing: '.05em', padding: '4px 0', textTransform: 'uppercase' },
   calCell: { aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, borderRadius: 8, cursor: 'pointer', flexDirection: 'column', gap: 1 },
