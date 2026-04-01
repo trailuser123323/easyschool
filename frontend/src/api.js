@@ -11,7 +11,19 @@ export function apiUrl(path) {
 export function resolveApiAssetUrl(path) {
   if (!path) return "";
   if (path.startsWith("data:")) return path;
-  if (/^https?:\/\//i.test(path)) return path;
+
+  if (/^https?:\/\//i.test(path)) {
+    try {
+      const url = new URL(path);
+      if (url.pathname.startsWith("/uploads/")) {
+        return apiUrl(url.pathname);
+      }
+      return path;
+    } catch {
+      return path;
+    }
+  }
+
   if (path.startsWith("/")) return apiUrl(path);
   return apiUrl(`/${path}`);
 }

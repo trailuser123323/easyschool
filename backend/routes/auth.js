@@ -338,9 +338,8 @@ router.post("/teachers/upload", upload.single("photo"), (req, res) => {
     return res.status(400).json({ message: "Photo file is required." });
   }
 
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
   return res.json({
-    photoUrl: `${baseUrl}/uploads/${req.file.filename}`,
+    photoUrl: `/uploads/${req.file.filename}`,
     filename: req.file.filename,
   });
 });
