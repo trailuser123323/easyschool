@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { apiUrl, resolveApiAssetUrl } from "./api";
 import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from "./attendance";
-import { upsertFallbackTeacher } from "./demoData";
+import { getAnnouncements, upsertFallbackTeacher } from "./demoData";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -666,25 +666,23 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
 }
 
 // ─── ANNOUNCEMENTS ─────────────────────────────────────────
-const announcements = [
-  { icon: '⚠️', iconType: 'warn', title: 'Staff Meeting — Mandatory', badge: 'New', body: 'All staff to assemble in the conference hall at 2:30 PM today. Attendance is compulsory.', time: 'Today, 9:00 AM · From: Principal' },
-  { icon: '📌', iconType: 'info', title: 'Annual Day Rehearsal Schedule', body: 'Rehearsals begin from Monday. Students from Class 6–10 to participate.', time: 'Yesterday · From: Admin Office' },
-  { icon: '🔴', iconType: 'alert', title: 'Leave Applications Deadline', body: 'All leave applications for March must be submitted before the 25th.', time: 'Mar 18 · From: Principal' },
-];
-
 function AnnouncementList({ items }) {
   return (
     <div style={{ paddingTop: 8 }}>
-      {items.map((a, i) => (
-        <div key={i} style={{...styles.annItem, ...(i === items.length - 1 ? { borderBottom: 'none' } : {})}}>
-          <div style={{...styles.annIcon, ...(a.iconType==='warn'?styles.annIconWarn:a.iconType==='info'?styles.annIconInfo:styles.annIconAlert)}}>{a.icon}</div>
+      {items.length > 0 ? items.map((a, i) => (
+        <div key={a.id || i} style={{...styles.annItem, ...(i === items.length - 1 ? { borderBottom: 'none' } : {})}}>
+          <div style={{...styles.annIcon, ...(a.iconType==='warn'?styles.annIconWarn:a.iconType==='info'?styles.annIconInfo:styles.annIconAlert)}}>{a.icon || '📢'}</div>
           <div>
             <div style={styles.annTitle}>{a.title}{a.badge && <span style={styles.annBadge}>{a.badge}</span>}</div>
             <div style={styles.annBody}>{a.body}</div>
             <div style={styles.annTime}>{a.time}</div>
           </div>
         </div>
-      ))}
+      )) : (
+        <div style={{ padding: '14px 22px', color: '#6b6b8a', fontSize: 13 }}>
+          No announcements posted yet.
+        </div>
+      )}
     </div>
   );
 }
@@ -945,6 +943,7 @@ function EmptySection({ icon, title, msg }) {
 
 // ─── DASHBOARD ─────────────────────────────────────────────
 function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
+  const announcements = getAnnouncements();
   return (
     <div>
       <div style={styles.topbar}>
@@ -1113,6 +1112,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [openLeave, setOpenLeave] = useState(false);
+  const [announcementVersion, setAnnouncementVersion] = useState(0);
 
   useEffect(() => {
     setTeacherState(normaliseTeacherForToday(teacher));
@@ -1129,6 +1129,17 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   useEffect(() => {
     setTeacherState((current) => normaliseTeacherForToday(current));
   }, [todayKey]);
+
+  useEffect(() => {
+    const syncAnnouncements = () => setAnnouncementVersion((current) => current + 1);
+    window.addEventListener('focus', syncAnnouncements);
+    window.addEventListener('storage', syncAnnouncements);
+
+    return () => {
+      window.removeEventListener('focus', syncAnnouncements);
+      window.removeEventListener('storage', syncAnnouncements);
+    };
+  }, []);
 
   const currentTeacher = normaliseTeacherForToday(teacherState);
 
@@ -1155,14 +1166,14 @@ export default function TeacherDashboard({ teacher, onLogout }) {
       `}</style>
       <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={currentTeacher} onLogout={onLogout} />
       <main style={styles.main}>
-        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
+        {activeSection === 'dashboard' && <Dashboard key={`dashboard-${announcementVersion}`} showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <AttendanceHistorySection teacher={currentTeacher} />}
         {activeSection === 'timetable' && <TimetableSection teacher={currentTeacher} />}
         {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
-          <div style={styles.card}><AnnouncementList items={[...announcements, { icon: '📌', iconType: 'info', title: 'Parent-Teacher Meeting — March 29', body: 'All class teachers must be present. Individual schedules will be shared by the coordinator.', time: 'Mar 15 · From: Admin Office' }]} /></div></>
+          <div style={styles.card}><AnnouncementList items={getAnnouncements()} /></div></>
         )}
         {activeSection === 'settings' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Settings</div><div style={styles.pageSub}>Account & preferences</div></div></div><EmptySection icon="⚙️" title="Settings coming soon" msg="Profile settings, notification preferences, and password management will be available here." /></>}
       </main>

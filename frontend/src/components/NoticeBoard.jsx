@@ -48,18 +48,24 @@ export default function NoticeBoard({ announcements, onAddAnnouncement }) {
       </form>
 
       <div className="notices-list">
-        {announcements.map(announcement => (
-          <div key={announcement.id} className="notice-item">
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ fontSize: '24px' }}>{announcement.icon}</div>
-              <div style={{ flex: 1 }}>
-                <div className="notice-title">{announcement.title}</div>
-                <div className="notice-body">{announcement.body}</div>
-                <div className="notice-time">🕐 {announcement.time}</div>
+        {announcements.length > 0 ? (
+          announcements.map(announcement => (
+            <div key={announcement.id} className="notice-item">
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ fontSize: '24px' }}>{announcement.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div className="notice-title">{announcement.title}</div>
+                  <div className="notice-body">{announcement.body}</div>
+                  <div className="notice-time">🕐 {announcement.time}</div>
+                </div>
               </div>
             </div>
+          ))
+        ) : (
+          <div className="notice-item">
+            <div className="notice-body">No announcements posted yet.</div>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 const STORAGE_KEY = "teacher_records_fallback";
 const LEAVE_REQUESTS_KEY = "teacher_leave_requests_fallback";
+const ANNOUNCEMENTS_KEY = "school_announcements";
 
 const DEFAULT_TEACHERS = [
   {
@@ -191,4 +192,23 @@ export function getFallbackLeaveRequests() {
 
 export function saveFallbackLeaveRequests(requests) {
   localStorage.setItem(LEAVE_REQUESTS_KEY, JSON.stringify(requests));
+}
+
+export function getAnnouncements() {
+  try {
+    const stored = localStorage.getItem(ANNOUNCEMENTS_KEY);
+    if (!stored) {
+      localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify([]));
+      return [];
+    }
+
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveAnnouncements(announcements) {
+  localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(Array.isArray(announcements) ? announcements : []));
 }

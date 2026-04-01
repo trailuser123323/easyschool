@@ -6,7 +6,7 @@ import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
 import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from './attendance';
-import { getFallbackTeachers, removeFallbackTeacher, saveFallbackTeachers } from './demoData';
+import { getAnnouncements, getFallbackTeachers, removeFallbackTeacher, saveAnnouncements, saveFallbackTeachers } from './demoData';
 
 function formatMonthValue(value) {
   const date = value ? new Date(`${value}-01T00:00:00`) : new Date();
@@ -315,11 +315,7 @@ export default function AdminDashboard({ user, onLogout }) {
   });
   const [isSavingTimetable, setIsSavingTimetable] = useState(false);
 
-  const [announcements, setAnnouncements] = useState([
-    { id:1, title:'Annual Sports Day Prep',    body:'All PE staff to coordinate with class teachers for student participation lists.', time:'Today, 9:00 AM', icon:'🏆', type:'info' },
-    { id:2, title:'Board Exam Schedule Out',   body:'Class 10 & 12 exam timetable published. Ensure supervision duty assignments.', time:'Yesterday',      icon:'📋', type:'warn' },
-    { id:3, title:'Parent-Teacher Meet — Mar 29', body:'All class teachers must be present. Schedules will be shared by EOD.', time:'Mar 18',         icon:'👨‍👩‍👦', type:'info' },
-  ]);
+  const [announcements, setAnnouncements] = useState(() => getAnnouncements());
 
   const [toast, setToast] = useState({ show: false, msg: '' });
   const leaveRequests = teachers.flatMap((teacher) =>
@@ -432,14 +428,16 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const handleAddAnnouncement = (title, body) => {
     const newAnnouncement = {
-      id: announcements.length + 1,
+      id: `announcement-${Date.now()}`,
       title,
       body,
       time: 'Just now',
       icon: '📢',
       type: 'info'
     };
-    setAnnouncements([newAnnouncement, ...announcements]);
+    const nextAnnouncements = [newAnnouncement, ...announcements];
+    setAnnouncements(nextAnnouncements);
+    saveAnnouncements(nextAnnouncements);
     showToast('Announcement posted ✅');
   };
 
