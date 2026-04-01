@@ -83,6 +83,74 @@
   color: #333;
 }
 
+.tracking-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 12px;
+}
+
+.tracking-stat-card {
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+}
+
+.tracking-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.tracking-stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tracking-stat-neutral {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+.tracking-stat-present {
+  background: #d4edda;
+  border-color: #b7e4c7;
+  color: #155724;
+}
+
+.tracking-stat-absent {
+  background: #f8d7da;
+  border-color: #f1b0b7;
+  color: #721c24;
+}
+
+.tracking-stat-leave {
+  background: #fff3cd;
+  border-color: #f6df8b;
+  color: #856404;
+}
+
+.tracking-stat-duty {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.tracking-stat-photo {
+  background: #ede9fe;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.tracking-stat-rate {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
 .status-badge {
   display: inline-block;
   padding: 6px 12px;
@@ -397,6 +465,15 @@
 }
 
 @media (max-width: 720px) {
+  .tracking-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tracking-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .teacher-photo-grid,
   .teacher-monthly-stats {
     grid-template-columns: 1fr;

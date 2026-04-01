@@ -18,10 +18,27 @@ function getMonthAttendance(teacher, date = new Date()) {
 
 export default function TeacherTracking({ teachers }) {
   const [selectedTeacher, setSelectedTeacher] = useState(null);
+  const totalTeachers = teachers.length;
   const presentCount = teachers.filter(t => t.status === 'present').length;
   const absentCount = teachers.filter(t => t.status === 'absent').length;
   const leaveCount = teachers.filter(t => t.status === 'leave').length;
+  const onDutyCount = teachers.filter((teacher) => teacher.onDuty).length;
+  const photoCount = teachers.filter((teacher) => teacher.loginPhoto || teacher.checkoutPhoto).length;
+  const averageRate = teachers.length > 0
+    ? `${Math.round(
+        teachers.reduce((sum, teacher) => sum + (parseInt(String(teacher.rate || '0').replace('%', ''), 10) || 0), 0) / teachers.length
+      )}%`
+    : '0%';
   const selectedTeacherAttendance = selectedTeacher ? getMonthAttendance(selectedTeacher) : null;
+  const stats = [
+    { value: totalTeachers, label: 'Teachers', className: 'tracking-stat-neutral' },
+    { value: presentCount, label: 'Present', className: 'tracking-stat-present' },
+    { value: absentCount, label: 'Absent', className: 'tracking-stat-absent' },
+    { value: leaveCount, label: 'On Leave', className: 'tracking-stat-leave' },
+    { value: onDutyCount, label: 'On Duty', className: 'tracking-stat-duty' },
+    { value: photoCount, label: 'Photos Today', className: 'tracking-stat-photo' },
+    { value: averageRate, label: 'Avg Attendance', className: 'tracking-stat-rate' },
+  ];
 
   return (
     <div className="tracking-container">
@@ -32,19 +49,13 @@ export default function TeacherTracking({ teachers }) {
             Last updated: {new Date().toLocaleTimeString()}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <div style={{ textAlign: 'center', padding: '12px 20px', background: '#d4edda', borderRadius: '8px' }}>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: '#155724' }}>{presentCount}</div>
-            <div style={{ fontSize: '12px', color: '#155724' }}>Present</div>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 20px', background: '#f8d7da', borderRadius: '8px' }}>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: '#721c24' }}>{absentCount}</div>
-            <div style={{ fontSize: '12px', color: '#721c24' }}>Absent</div>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 20px', background: '#fff3cd', borderRadius: '8px' }}>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: '#856404' }}>{leaveCount}</div>
-            <div style={{ fontSize: '12px', color: '#856404' }}>On Leave</div>
-          </div>
+        <div className="tracking-stats-grid">
+          {stats.map((stat) => (
+            <div key={stat.label} className={`tracking-stat-card ${stat.className}`}>
+              <div className="tracking-stat-value">{stat.value}</div>
+              <div className="tracking-stat-label">{stat.label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
