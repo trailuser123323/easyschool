@@ -5,6 +5,7 @@ import path from "path";
 import multer from "multer";
 import { fileURLToPath } from "url";
 import Admin from "../models/Admin.js";
+import Announcement from "../models/Announcement.js";
 import Teacher from "../models/Teacher.js";
 
 const router = express.Router();
@@ -134,6 +135,26 @@ function buildInitials(name = "") {
 
   if (parts.length === 0) return "T";
   return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "T";
+}
+
+function formatAnnouncement(announcement) {
+  const payload = announcement.toObject ? announcement.toObject() : { ...announcement };
+  const createdAt = payload.createdAt ? new Date(payload.createdAt) : new Date();
+
+  return {
+    id: String(payload._id),
+    title: payload.title,
+    body: payload.body,
+    icon: payload.icon || "📢",
+    type: payload.type || "info",
+    time: createdAt.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+    createdAt: createdAt.toISOString(),
+  };
 }
 
 function ensureDatabaseReady(res) {
@@ -293,6 +314,43 @@ router.get("/teachers", async (_req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/announcements", async (_req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
+  try {
+    const announcements = await Announcement.find().sort({ createdAt: -1 }).limit(50);
+    return res.json(announcements.map(formatAnnouncement));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.post("/announcements", async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
+  const title = req.body?.title?.trim();
+  const body = req.body?.body?.trim();
+
+  if (!title || !body) {
+    return res.status(400).json({ message: "Announcement title and body are required." });
+  }
+
+  try {
+    const announcement = await Announcement.create({
+      title,
+      body,
+      icon: "📢",
+      type: "info",
+    });
+
+    return res.status(201).json(formatAnnouncement(announcement));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

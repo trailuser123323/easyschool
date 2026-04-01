@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { apiUrl, resolveApiAssetUrl } from "./api";
 import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from "./attendance";
-import { ANNOUNCEMENTS_UPDATED_EVENT, getAnnouncements, upsertFallbackTeacher } from "./demoData";
+import { upsertFallbackTeacher } from "./demoData";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -959,8 +959,7 @@ function EmptySection({ icon, title, msg }) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────
-function Dashboard({ showToast, openLeave, teacher, onTeacherUpdate }) {
-  const announcements = getAnnouncements();
+function Dashboard({ announcements, showToast, openLeave, teacher, onTeacherUpdate }) {
   return (
     <div>
       <div style={styles.topbar}>
@@ -1129,7 +1128,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [openLeave, setOpenLeave] = useState(false);
-  const [announcements, setAnnouncements] = useState(() => getAnnouncements());
+  const [announcements, setAnnouncements] = useState([]);
   const [popupAnnouncement, setPopupAnnouncement] = useState(null);
 
   useEffect(() => {
@@ -1149,29 +1148,45 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   }, [todayKey]);
 
   useEffect(() => {
-    const syncAnnouncements = () => {
-      const nextAnnouncements = getAnnouncements();
-      setAnnouncements(nextAnnouncements);
+    let cancelled = false;
 
-      const latest = nextAnnouncements[0];
-      if (!latest) return;
+    async function loadAnnouncements() {
+      try {
+        const response = await fetch(apiUrl('/api/auth/announcements'));
+        const data = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(data.message || 'Unable to load announcements.');
+        }
 
-      const seenKey = `teacher-last-seen-announcement-${teacher?.email || 'default'}`;
-      const seenAnnouncementId = localStorage.getItem(seenKey);
-      if (latest.id !== seenAnnouncementId) {
-        setPopupAnnouncement(latest);
+        if (cancelled) return;
+
+        const nextAnnouncements = Array.isArray(data) ? data : [];
+        setAnnouncements(nextAnnouncements);
+
+        const latest = nextAnnouncements[0];
+        if (!latest) return;
+
+        const seenKey = `teacher-last-seen-announcement-${teacher?.email || 'default'}`;
+        const seenAnnouncementId = localStorage.getItem(seenKey);
+        if (latest.id !== seenAnnouncementId) {
+          setPopupAnnouncement(latest);
+        }
+      } catch {
+        if (!cancelled) {
+          setAnnouncements([]);
+        }
       }
-    };
+    }
 
-    syncAnnouncements();
-    window.addEventListener('focus', syncAnnouncements);
-    window.addEventListener('storage', syncAnnouncements);
-    window.addEventListener(ANNOUNCEMENTS_UPDATED_EVENT, syncAnnouncements);
+    loadAnnouncements();
+    const intervalId = setInterval(loadAnnouncements, 5000);
+    const handleFocus = () => loadAnnouncements();
+    window.addEventListener('focus', handleFocus);
 
     return () => {
-      window.removeEventListener('focus', syncAnnouncements);
-      window.removeEventListener('storage', syncAnnouncements);
-      window.removeEventListener(ANNOUNCEMENTS_UPDATED_EVENT, syncAnnouncements);
+      cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [teacher?.email]);
 
@@ -1207,7 +1222,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
       `}</style>
       <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={currentTeacher} onLogout={onLogout} />
       <main style={styles.main}>
-        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
+        {activeSection === 'dashboard' && <Dashboard announcements={announcements} showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <AttendanceHistorySection teacher={currentTeacher} />}
         {activeSection === 'timetable' && <TimetableSection teacher={currentTeacher} />}

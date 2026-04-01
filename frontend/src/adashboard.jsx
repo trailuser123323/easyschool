@@ -6,7 +6,7 @@ import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
 import { apiUrl } from './api';
 import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from './attendance';
-import { getAnnouncements, getFallbackTeachers, removeFallbackTeacher, saveAnnouncements, saveFallbackTeachers } from './demoData';
+import { getFallbackTeachers, removeFallbackTeacher, saveFallbackTeachers } from './demoData';
 
 function formatMonthValue(value) {
   const date = value ? new Date(`${value}-01T00:00:00`) : new Date();
@@ -315,7 +315,7 @@ export default function AdminDashboard({ user, onLogout }) {
   });
   const [isSavingTimetable, setIsSavingTimetable] = useState(false);
 
-  const [announcements, setAnnouncements] = useState(() => getAnnouncements());
+  const [announcements, setAnnouncements] = useState([]);
 
   const [toast, setToast] = useState({ show: false, msg: '' });
   const leaveRequests = teachers.flatMap((teacher) =>
@@ -358,6 +358,39 @@ export default function AdminDashboard({ user, onLogout }) {
     loadTeachers();
     const intervalId = setInterval(loadTeachers, 5000);
     const handleFocus = () => loadTeachers();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAnnouncements() {
+      try {
+        const response = await fetch(apiUrl('/api/auth/announcements'));
+        const data = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(data.message || 'Unable to load announcements.');
+        }
+
+        if (!cancelled) {
+          setAnnouncements(Array.isArray(data) ? data : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setAnnouncements([]);
+        }
+      }
+    }
+
+    loadAnnouncements();
+    const intervalId = setInterval(loadAnnouncements, 5000);
+    const handleFocus = () => loadAnnouncements();
     window.addEventListener('focus', handleFocus);
 
     return () => {
@@ -426,18 +459,18 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
-  const handleAddAnnouncement = (title, body) => {
-    const newAnnouncement = {
-      id: `announcement-${Date.now()}`,
-      title,
-      body,
-      time: 'Just now',
-      icon: '📢',
-      type: 'info'
-    };
-    const nextAnnouncements = [newAnnouncement, ...announcements];
-    setAnnouncements(nextAnnouncements);
-    saveAnnouncements(nextAnnouncements);
+  const handleAddAnnouncement = async (title, body) => {
+    const response = await fetch(apiUrl('/api/auth/announcements'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to post announcement.');
+    }
+
+    setAnnouncements((current) => [data, ...current]);
     showToast('Announcement posted ✅');
   };
 

@@ -3,13 +3,24 @@ import React, { useState } from 'react';
 export default function NoticeBoard({ announcements, onAddAnnouncement }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (title.trim() && body.trim()) {
-      onAddAnnouncement(title, body);
+    if (!title.trim() || !body.trim()) return;
+
+    setSaving(true);
+    setError('');
+
+    try {
+      await onAddAnnouncement(title, body);
       setTitle('');
       setBody('');
+    } catch (submitError) {
+      setError(submitError.message || 'Unable to post announcement.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -43,8 +54,9 @@ export default function NoticeBoard({ announcements, onAddAnnouncement }) {
           />
         </div>
         <button type="submit" className="btn-submit">
-          📤 Post Announcement
+          {saving ? 'Posting...' : '📤 Post Announcement'}
         </button>
+        {error && <div style={{ color: '#b91c1c', fontSize: '13px' }}>{error}</div>}
       </form>
 
       <div className="notices-list">
