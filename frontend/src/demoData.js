@@ -1,6 +1,7 @@
 const STORAGE_KEY = "teacher_records_fallback";
 const LEAVE_REQUESTS_KEY = "teacher_leave_requests_fallback";
 const ANNOUNCEMENTS_KEY = "school_announcements";
+export const ANNOUNCEMENTS_UPDATED_EVENT = "school-announcements-updated";
 
 const DEFAULT_TEACHERS = [
   {
@@ -211,4 +212,5 @@ export function getAnnouncements() {
 
 export function saveAnnouncements(announcements) {
   localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(Array.isArray(announcements) ? announcements : []));
+  window.dispatchEvent(new CustomEvent(ANNOUNCEMENTS_UPDATED_EVENT));
 }

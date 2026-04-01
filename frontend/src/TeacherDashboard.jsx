@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { apiUrl, resolveApiAssetUrl } from "./api";
 import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from "./attendance";
-import { getAnnouncements, upsertFallbackTeacher } from "./demoData";
+import { ANNOUNCEMENTS_UPDATED_EVENT, getAnnouncements, upsertFallbackTeacher } from "./demoData";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -687,6 +687,23 @@ function AnnouncementList({ items }) {
   );
 }
 
+function AnnouncementPopup({ announcement, onClose }) {
+  if (!announcement) return null;
+
+  return (
+    <div style={styles.announcementPopupOverlay} onClick={onClose}>
+      <div style={styles.announcementPopup} onClick={(event) => event.stopPropagation()}>
+        <button style={styles.modalClose} onClick={onClose}>✕</button>
+        <div style={styles.announcementPopupEyebrow}>New Announcement</div>
+        <div style={styles.announcementPopupTitle}>{announcement.title}</div>
+        <div style={styles.announcementPopupBody}>{announcement.body}</div>
+        <div style={styles.announcementPopupTime}>{announcement.time}</div>
+        <button style={styles.submitBtn} onClick={onClose}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── LEAVE CARD ────────────────────────────────────────────
 function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
   const [open, setOpen] = useState(defaultOpen || false);
@@ -1112,7 +1129,8 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [openLeave, setOpenLeave] = useState(false);
-  const [announcementVersion, setAnnouncementVersion] = useState(0);
+  const [announcements, setAnnouncements] = useState(() => getAnnouncements());
+  const [popupAnnouncement, setPopupAnnouncement] = useState(null);
 
   useEffect(() => {
     setTeacherState(normaliseTeacherForToday(teacher));
@@ -1131,15 +1149,31 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   }, [todayKey]);
 
   useEffect(() => {
-    const syncAnnouncements = () => setAnnouncementVersion((current) => current + 1);
+    const syncAnnouncements = () => {
+      const nextAnnouncements = getAnnouncements();
+      setAnnouncements(nextAnnouncements);
+
+      const latest = nextAnnouncements[0];
+      if (!latest) return;
+
+      const seenKey = `teacher-last-seen-announcement-${teacher?.email || 'default'}`;
+      const seenAnnouncementId = localStorage.getItem(seenKey);
+      if (latest.id !== seenAnnouncementId) {
+        setPopupAnnouncement(latest);
+      }
+    };
+
+    syncAnnouncements();
     window.addEventListener('focus', syncAnnouncements);
     window.addEventListener('storage', syncAnnouncements);
+    window.addEventListener(ANNOUNCEMENTS_UPDATED_EVENT, syncAnnouncements);
 
     return () => {
       window.removeEventListener('focus', syncAnnouncements);
       window.removeEventListener('storage', syncAnnouncements);
+      window.removeEventListener(ANNOUNCEMENTS_UPDATED_EVENT, syncAnnouncements);
     };
-  }, []);
+  }, [teacher?.email]);
 
   const currentTeacher = normaliseTeacherForToday(teacherState);
 
@@ -1151,6 +1185,13 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   function handleApplyLeave() {
     setActiveSection('leave');
     setOpenLeave(true);
+  }
+
+  function closeAnnouncementPopup() {
+    if (popupAnnouncement) {
+      localStorage.setItem(`teacher-last-seen-announcement-${teacher?.email || 'default'}`, popupAnnouncement.id);
+    }
+    setPopupAnnouncement(null);
   }
 
   return (
@@ -1166,17 +1207,18 @@ export default function TeacherDashboard({ teacher, onLogout }) {
       `}</style>
       <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={currentTeacher} onLogout={onLogout} />
       <main style={styles.main}>
-        {activeSection === 'dashboard' && <Dashboard key={`dashboard-${announcementVersion}`} showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
+        {activeSection === 'dashboard' && <Dashboard showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
         {activeSection === 'attendance' && <AttendanceHistorySection teacher={currentTeacher} />}
         {activeSection === 'timetable' && <TimetableSection teacher={currentTeacher} />}
         {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'announcements' && (
           <><div style={styles.topbar}><div><div style={styles.pageTitle}>Announcements</div><div style={styles.pageSub}>All notices from school management</div></div></div>
-          <div style={styles.card}><AnnouncementList items={getAnnouncements()} /></div></>
+          <div style={styles.card}><AnnouncementList items={announcements} /></div></>
         )}
         {activeSection === 'settings' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>Settings</div><div style={styles.pageSub}>Account & preferences</div></div></div><EmptySection icon="⚙️" title="Settings coming soon" msg="Profile settings, notification preferences, and password management will be available here." /></>}
       </main>
+      <AnnouncementPopup announcement={popupAnnouncement} onClose={closeAnnouncementPopup} />
       <Toast toast={toast} />
     </div>
   );
@@ -1275,6 +1317,12 @@ const styles = {
   modal: { background: '#fff', borderRadius: 16, padding: 28, width: 360, maxWidth: '94vw', position: 'relative' },
   modalTitle: { fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 600, marginBottom: 8 },
   modalSub: { fontSize: 13, color: '#6b6b8a', marginBottom: 20 },
+  announcementPopupOverlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: 20 },
+  announcementPopup: { background: '#fff', borderRadius: 20, padding: 28, width: 420, maxWidth: '94vw', position: 'relative', boxShadow: '0 24px 80px rgba(15,23,42,.28)' },
+  announcementPopupEyebrow: { fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#4f46e5', marginBottom: 10 },
+  announcementPopupTitle: { fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: '#1a1a2e', marginBottom: 10, paddingRight: 20 },
+  announcementPopupBody: { fontSize: 14, lineHeight: 1.7, color: '#4b5563', marginBottom: 12 },
+  announcementPopupTime: { fontSize: 12, color: '#6b7280', marginBottom: 18 },
   cameraPreview: { width: '100%', height: 200, background: '#111', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, position: 'relative', overflow: 'hidden' },
   cameraImage: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 },
   cameraImageHidden: { position: 'absolute', opacity: 0, pointerEvents: 'none' },
