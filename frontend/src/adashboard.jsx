@@ -40,6 +40,25 @@ function normaliseTimetableEntries(timetable) {
     : [];
 }
 
+function parseBulkTimetable(value) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [date = '', timeSlot = '', subject = '', room = ''] = line.split('|').map((part) => part.trim());
+      return {
+        date,
+        day: date ? new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'long' }) : '',
+        timeSlot,
+        period: timeSlot,
+        subject,
+        room,
+      };
+    })
+    .filter((entry) => entry.date && entry.timeSlot && entry.subject);
+}
+
 function formatCheckin(lastLogin, fallback = '–') {
   if (!lastLogin) return fallback;
   return new Date(lastLogin).toLocaleTimeString([], {
@@ -218,10 +237,20 @@ function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
             <span>Room</span>
             <input name="room" value={form.room} onChange={onChange} placeholder="Lab 2 / 9A" />
           </label>
+          <label className="form-field form-field-full">
+            <span>Quick Add Multiple Slots</span>
+            <textarea
+              name="bulkEntries"
+              value={form.bulkEntries}
+              onChange={onChange}
+              placeholder={`2026-04-02 | 09:00 - 09:45 | Science | Lab 2\n2026-04-02 | 10:00 - 10:45 | Science | 9A`}
+            />
+            <small>One line per slot: <b>date | time | subject | room</b></small>
+          </label>
         </div>
         <div className="form-actions">
           <button className="primary-action" type="submit" disabled={isSaving || teachers.length === 0}>
-            {isSaving ? 'Saving...' : 'Add Timetable Slot'}
+            {isSaving ? 'Saving...' : form.bulkEntries.trim() ? 'Save All Slots' : 'Add Timetable Slot'}
           </button>
         </div>
       </form>
@@ -312,6 +341,7 @@ export default function AdminDashboard({ user, onLogout }) {
     timeSlot: '',
     subject: '',
     room: '',
+    bulkEntries: '',
   });
   const [isSavingTimetable, setIsSavingTimetable] = useState(false);
 
@@ -613,7 +643,17 @@ export default function AdminDashboard({ user, onLogout }) {
       subject: timetableForm.subject.trim(),
       room: timetableForm.room.trim(),
     };
-    const nextTimetable = [...(teacher.timetable || []), nextEntry];
+    const bulkEntries = parseBulkTimetable(timetableForm.bulkEntries);
+    const entriesToAdd = bulkEntries.length > 0
+      ? bulkEntries
+      : (nextEntry.date && nextEntry.timeSlot && nextEntry.subject ? [nextEntry] : []);
+
+    if (entriesToAdd.length === 0) {
+      showToast('Add a slot or paste timetable lines first.');
+      return;
+    }
+
+    const nextTimetable = [...(teacher.timetable || []), ...entriesToAdd];
     const nextTeacher = normaliseTeacher({ ...teacher, timetable: nextTimetable }, teachers.length);
 
     setIsSavingTimetable(true);
@@ -635,7 +675,7 @@ export default function AdminDashboard({ user, onLogout }) {
       );
       setTeachers(nextTeachers);
       saveFallbackTeachers(nextTeachers);
-      showToast('Timetable slot saved ✅');
+      showToast(entriesToAdd.length > 1 ? 'Timetable slots saved ✅' : 'Timetable slot saved ✅');
     } catch (error) {
       const nextTeachers = teachers.map((item) =>
         String(item.id) === String(teacher.id) ? nextTeacher : item
@@ -645,7 +685,7 @@ export default function AdminDashboard({ user, onLogout }) {
       showToast(error.message || 'Timetable saved locally ⚠️');
     } finally {
       setIsSavingTimetable(false);
-      setTimetableForm((current) => ({ ...current, date: '', timeSlot: '', subject: '', room: '' }));
+      setTimetableForm((current) => ({ ...current, date: '', timeSlot: '', subject: '', room: '', bulkEntries: '' }));
     }
   };
 
