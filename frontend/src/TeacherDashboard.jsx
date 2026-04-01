@@ -423,10 +423,10 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
     setCheckinPhoto(teacher?.loginPhoto || '');
     setCheckoutPhoto(teacher?.checkoutPhoto || '');
     setOnDuty(Boolean(teacher?.onDuty));
-    if (teacher?.role === 'teacher') {
+    if (teacher?.role === 'teacher' && !teacherId) {
       upsertFallbackTeacher(teacher);
     }
-  }, [teacher]);
+  }, [teacher, teacherId]);
 
   async function persistAttendance(nextFields) {
     const mergedFields = {
@@ -451,7 +451,6 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
         throw new Error(data.message || 'Unable to update attendance.');
       }
 
-      upsertFallbackTeacher(teacher, data);
       onTeacherUpdate?.(data);
 
       const storedUser = localStorage.getItem('user');
@@ -463,19 +462,8 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
       }
 
       return data;
-    } catch {
-      const fallbackTeacher = upsertFallbackTeacher(teacher, mergedFields);
-      onTeacherUpdate?.(fallbackTeacher);
-
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if ((parsedUser.id || parsedUser._id) === teacherId || parsedUser.email === teacher?.email) {
-          localStorage.setItem('user', JSON.stringify({ ...parsedUser, ...fallbackTeacher }));
-        }
-      }
-
-      return fallbackTeacher;
+    } catch (error) {
+      throw new Error(error?.message || 'Unable to update attendance.');
     }
   }
 

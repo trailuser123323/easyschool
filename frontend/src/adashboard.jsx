@@ -84,20 +84,7 @@ function getLeaveRequestMeta(status) {
 }
 
 function mergeTeacherRecords(remoteTeachers, fallbackTeachers) {
-  const fallbackByEmail = new Map(
-    fallbackTeachers
-      .filter((teacher) => teacher?.email)
-      .map((teacher) => [teacher.email, teacher])
-  );
-
-  const merged = remoteTeachers.map((teacher) => {
-    const fallbackTeacher = fallbackByEmail.get(teacher.email);
-    if (!fallbackTeacher) return teacher;
-
-    return fallbackTeacher.updatedAt > (teacher.updatedAt || 0)
-      ? { ...teacher, ...fallbackTeacher, id: teacher.id, _id: teacher._id || fallbackTeacher._id || '' }
-      : teacher;
-  });
+  const merged = [...remoteTeachers];
 
   fallbackTeachers.forEach((teacher) => {
     if (!teacher?.email) return;

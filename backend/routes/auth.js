@@ -1,5 +1,6 @@
 import express from "express";
 import fs from "fs";
+import mongoose from "mongoose";
 import path from "path";
 import multer from "multer";
 import { fileURLToPath } from "url";
@@ -135,6 +136,15 @@ function buildInitials(name = "") {
   return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "T";
 }
 
+function ensureDatabaseReady(res) {
+  if (mongoose.connection.readyState === 1) {
+    return true;
+  }
+
+  res.status(503).json({ message: "Database is unavailable. Server data could not be saved." });
+  return false;
+}
+
 async function seedIfEmpty() {
   const adminUser = await Admin.findOne({ email: "admin@gmail.com" });
   if (!adminUser) {
@@ -231,6 +241,8 @@ seedIfEmpty().catch((error) => {
 });
 
 router.post("/login", async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
   const { email, password } = req.body;
   const normalizedEmail = email?.trim().toLowerCase();
 
@@ -273,6 +285,8 @@ router.post("/login", async (req, res) => {
 });
 
 router.get("/teachers", async (_req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
   try {
     const teachers = await Teacher.find().sort({ name: 1 });
     res.json(teachers.map(serializeTeacher));
@@ -283,6 +297,8 @@ router.get("/teachers", async (_req, res) => {
 });
 
 router.post("/teachers", async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
   const {
     name,
     email,
@@ -334,6 +350,8 @@ router.post("/teachers", async (req, res) => {
 });
 
 router.post("/teachers/upload", upload.single("photo"), (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
   if (!req.file) {
     return res.status(400).json({ message: "Photo file is required." });
   }
@@ -345,6 +363,8 @@ router.post("/teachers/upload", upload.single("photo"), (req, res) => {
 });
 
 router.put("/teachers/:id", async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
   try {
     const teacher = await Teacher.findById(req.params.id);
 
@@ -409,6 +429,8 @@ router.put("/teachers/:id", async (req, res) => {
 });
 
 router.delete("/teachers/:id", async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
   try {
     if (!req.params.id || !Teacher.db?.base?.Types?.ObjectId?.isValid(req.params.id)) {
       return res.status(400).json({ message: "Invalid teacher id." });
