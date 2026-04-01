@@ -16,12 +16,47 @@ function getMonthAttendance(teacher, date = new Date()) {
   };
 }
 
+function getStatusMeta(status) {
+  if (status === 'present') {
+    return 'bg-emerald-100 text-emerald-800 ring-emerald-200';
+  }
+
+  if (status === 'leave') {
+    return 'bg-amber-100 text-amber-800 ring-amber-200';
+  }
+
+  return 'bg-rose-100 text-rose-800 ring-rose-200';
+}
+
+function getLocationLabel(teacher) {
+  return teacher.onDuty || teacher.status === 'present' ? '18.52°N, 73.85°E' : 'Offline';
+}
+
+function TrackingStatCard({ label, value, tone }) {
+  const tones = {
+    slate: 'bg-slate-100 text-slate-900 ring-slate-200',
+    emerald: 'bg-emerald-100 text-emerald-900 ring-emerald-200',
+    rose: 'bg-rose-100 text-rose-900 ring-rose-200',
+    amber: 'bg-amber-100 text-amber-900 ring-amber-200',
+    blue: 'bg-blue-100 text-blue-900 ring-blue-200',
+    violet: 'bg-violet-100 text-violet-900 ring-violet-200',
+    teal: 'bg-teal-100 text-teal-900 ring-teal-200',
+  };
+
+  return (
+    <div className={`rounded-2xl px-4 py-4 ring-1 ${tones[tone] || tones.slate}`}>
+      <div className="text-2xl font-bold leading-none">{value}</div>
+      <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] opacity-80">{label}</div>
+    </div>
+  );
+}
+
 export default function TeacherTracking({ teachers }) {
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const totalTeachers = teachers.length;
-  const presentCount = teachers.filter(t => t.status === 'present').length;
-  const absentCount = teachers.filter(t => t.status === 'absent').length;
-  const leaveCount = teachers.filter(t => t.status === 'leave').length;
+  const presentCount = teachers.filter((teacher) => teacher.status === 'present').length;
+  const absentCount = teachers.filter((teacher) => teacher.status === 'absent').length;
+  const leaveCount = teachers.filter((teacher) => teacher.status === 'leave').length;
   const onDutyCount = teachers.filter((teacher) => teacher.onDuty).length;
   const photoCount = teachers.filter((teacher) => teacher.loginPhoto || teacher.checkoutPhoto).length;
   const averageRate = teachers.length > 0
@@ -30,89 +65,85 @@ export default function TeacherTracking({ teachers }) {
       )}%`
     : '0%';
   const selectedTeacherAttendance = selectedTeacher ? getMonthAttendance(selectedTeacher) : null;
-  const stats = [
-    { value: totalTeachers, label: 'Teachers', className: 'tracking-stat-neutral' },
-    { value: presentCount, label: 'Present', className: 'tracking-stat-present' },
-    { value: absentCount, label: 'Absent', className: 'tracking-stat-absent' },
-    { value: leaveCount, label: 'On Leave', className: 'tracking-stat-leave' },
-    { value: onDutyCount, label: 'On Duty', className: 'tracking-stat-duty' },
-    { value: photoCount, label: 'Photos Today', className: 'tracking-stat-photo' },
-    { value: averageRate, label: 'Avg Attendance', className: 'tracking-stat-rate' },
-  ];
 
   return (
-    <div className="tracking-container">
-      <div className="tracking-header">
+    <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <div className="mb-6 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <h1>📍 Real-Time Teacher Tracking</h1>
-          <p style={{ color: '#666', fontSize: '14px', marginTop: '4px' }}>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Real-Time Teacher Tracking</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Live attendance snapshot and teacher activity overview.
+          </p>
+          <p className="mt-1 text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
             Last updated: {new Date().toLocaleTimeString()}
           </p>
         </div>
-        <div className="tracking-stats-grid">
-          {stats.map((stat) => (
-            <div key={stat.label} className={`tracking-stat-card ${stat.className}`}>
-              <div className="tracking-stat-value">{stat.value}</div>
-              <div className="tracking-stat-label">{stat.label}</div>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:w-[52rem] xl:grid-cols-4">
+          <TrackingStatCard label="Teachers" value={totalTeachers} tone="slate" />
+          <TrackingStatCard label="Present" value={presentCount} tone="emerald" />
+          <TrackingStatCard label="Absent" value={absentCount} tone="rose" />
+          <TrackingStatCard label="On Leave" value={leaveCount} tone="amber" />
+          <TrackingStatCard label="On Duty" value={onDutyCount} tone="blue" />
+          <TrackingStatCard label="Photos Today" value={photoCount} tone="violet" />
+          <TrackingStatCard label="Avg Attendance" value={averageRate} tone="teal" />
         </div>
       </div>
 
-      <div className="teachers-grid">
-        {teachers.map(teacher => (
-          <div key={teacher.id} className="teacher-card">
-            <div className="teacher-header">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        {teachers.map((teacher) => (
+          <div
+            key={teacher.id}
+            className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="flex items-center gap-4">
               <button
                 type="button"
-                className="teacher-avatar teacher-avatar-button"
-                style={{ '--teacher-color': teacher.color }}
+                className="flex h-14 w-14 items-center justify-center rounded-full text-base font-bold text-white shadow-sm"
+                style={{ background: teacher.color || '#667eea' }}
                 onClick={() => setSelectedTeacher(teacher)}
                 title={`View ${teacher.name} profile`}
               >
                 {teacher.initials}
               </button>
-              <div className="teacher-info">
-                <div className="teacher-name">{teacher.name}</div>
-                <div className="teacher-subject">{teacher.subject} • {teacher.class}</div>
-              </div>
-            </div>
-            
-            <div style={{ marginBottom: '12px' }}>
-              <span className={`status-badge status-${teacher.status}`}>
-                {teacher.status.toUpperCase()}
-              </span>
-              <span style={{ marginLeft: '8px', fontSize: '12px', color: '#666' }}>
-                {teacher.checkin}
-              </span>
-            </div>
-
-            <div className="teacher-details">
-              <div className="detail-item">
-                <span className="detail-label">Check-in:</span>
-                <span className="detail-value">{teacher.checkin}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Duty:</span>
-                <span className="detail-value">{teacher.onDuty ? '✅' : '❌'}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Absent Days:</span>
-                <span className="detail-value">{teacher.absent}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Attendance:</span>
-                <span className="detail-value">{teacher.rate}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-base font-semibold text-slate-900">{teacher.name}</div>
+                <div className="truncate text-sm text-slate-500">{teacher.subject} • {teacher.class}</div>
               </div>
             </div>
 
-            <div style={{ padding: '12px 0', borderTop: '1px solid #eee', fontSize: '12px', color: '#666' }}>
-              📍 Last location: {Math.random() > 0.5 ? '18.52°N, 73.85°E' : 'Offline'}
+            <div className="mt-4 flex items-center gap-2">
+              <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ring-1 ${getStatusMeta(teacher.status)}`}>
+                {teacher.status}
+              </span>
+              <span className="text-xs text-slate-500">{teacher.checkin}</span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm">
+              <div>
+                <div className="text-xs uppercase tracking-[0.12em] text-slate-400">Check-in</div>
+                <div className="mt-1 font-semibold text-slate-800">{teacher.checkin}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.12em] text-slate-400">Duty</div>
+                <div className="mt-1 font-semibold text-slate-800">{teacher.onDuty ? 'On Duty' : 'Off Duty'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.12em] text-slate-400">Absent Days</div>
+                <div className="mt-1 font-semibold text-slate-800">{teacher.absent}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.12em] text-slate-400">Attendance</div>
+                <div className="mt-1 font-semibold text-slate-800">{teacher.rate}</div>
+              </div>
+            </div>
+
+            <div className="mt-4 border-t border-slate-200 pt-4 text-sm text-slate-500">
+              <span className="font-medium text-slate-700">Last location:</span> {getLocationLabel(teacher)}
             </div>
 
             <button
               type="button"
-              className="teacher-photo-button"
+              className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
               onClick={() => setSelectedTeacher(teacher)}
             >
               View teacher profile
@@ -122,90 +153,88 @@ export default function TeacherTracking({ teachers }) {
       </div>
 
       {selectedTeacher && (
-        <div className="teacher-photo-modal" onClick={() => setSelectedTeacher(null)}>
-          <div className="teacher-photo-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="teacher-photo-header">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 p-6" onClick={() => setSelectedTeacher(null)}>
+          <div
+            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <div className="teacher-photo-title">{selectedTeacher.name}</div>
-                <div className="teacher-photo-subtitle">
-                  {selectedTeacher.subject} • {selectedTeacher.class}
-                </div>
+                <div className="text-2xl font-bold text-slate-900">{selectedTeacher.name}</div>
+                <div className="mt-1 text-sm text-slate-500">{selectedTeacher.subject} • {selectedTeacher.class}</div>
               </div>
               <button
                 type="button"
-                className="teacher-photo-close"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-2xl text-slate-700 transition hover:bg-slate-200"
                 onClick={() => setSelectedTeacher(null)}
               >
                 ×
               </button>
             </div>
-            <div className="teacher-photo-grid">
-              <div className="teacher-photo-panel">
-                <div className="teacher-photo-label">Check-in {selectedTeacher.checkin ? `• ${selectedTeacher.checkin}` : ''}</div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-slate-700">Check-in {selectedTeacher.checkin ? `• ${selectedTeacher.checkin}` : ''}</div>
                 {selectedTeacher.loginPhoto ? (
                   <img
-                    className="teacher-photo-image"
+                    className="block w-full rounded-2xl border border-slate-200 bg-slate-50"
                     src={resolveApiAssetUrl(selectedTeacher.loginPhoto)}
                     alt={`${selectedTeacher.name} check-in`}
                   />
                 ) : (
-                  <div className="teacher-photo-empty">No check-in photo</div>
+                  <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-sm text-slate-500">
+                    No check-in photo
+                  </div>
                 )}
               </div>
-              <div className="teacher-photo-panel">
-                <div className="teacher-photo-label">Check-out {selectedTeacher.checkout && selectedTeacher.checkout !== '–' ? `• ${selectedTeacher.checkout}` : ''}</div>
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-slate-700">Check-out {selectedTeacher.checkout && selectedTeacher.checkout !== '–' ? `• ${selectedTeacher.checkout}` : ''}</div>
                 {selectedTeacher.checkoutPhoto ? (
                   <img
-                    className="teacher-photo-image"
+                    className="block w-full rounded-2xl border border-slate-200 bg-slate-50"
                     src={resolveApiAssetUrl(selectedTeacher.checkoutPhoto)}
                     alt={`${selectedTeacher.name} check-out`}
                   />
                 ) : (
-                  <div className="teacher-photo-empty">No check-out photo</div>
+                  <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-sm text-slate-500">
+                    No check-out photo
+                  </div>
                 )}
               </div>
             </div>
-            <div className="teacher-monthly-section">
-              <div className="teacher-monthly-title">
+
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <div className="text-base font-semibold text-slate-900">
                 Monthly Attendance · {new Date().toLocaleDateString([], { month: 'long', year: 'numeric' })}
               </div>
-              <div className="teacher-monthly-stats">
-                <div className="teacher-monthly-stat">
-                  <strong>{selectedTeacherAttendance?.present || 0}</strong>
-                  <span>Present</span>
-                </div>
-                <div className="teacher-monthly-stat">
-                  <strong>{selectedTeacherAttendance?.absent || 0}</strong>
-                  <span>Absent</span>
-                </div>
-                <div className="teacher-monthly-stat">
-                  <strong>{selectedTeacherAttendance?.leave || 0}</strong>
-                  <span>Leave</span>
-                </div>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <TrackingStatCard label="Present" value={selectedTeacherAttendance?.present || 0} tone="emerald" />
+                <TrackingStatCard label="Absent" value={selectedTeacherAttendance?.absent || 0} tone="rose" />
+                <TrackingStatCard label="Leave" value={selectedTeacherAttendance?.leave || 0} tone="amber" />
               </div>
-              <div className="teacher-monthly-list">
+              <div className="mt-4 space-y-3">
                 {selectedTeacherAttendance?.monthlyRecords?.length ? (
                   selectedTeacherAttendance.monthlyRecords.map((record) => (
-                    <div key={`${record.date}-${record.checkin}-${record.checkout}`} className="teacher-monthly-row">
+                    <div key={`${record.date}-${record.checkin}-${record.checkout}`} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <div className="teacher-monthly-date">
+                        <div className="font-semibold text-slate-900">
                           {new Date(`${record.date}T00:00:00`).toLocaleDateString([], {
                             weekday: 'short',
                             day: 'numeric',
                             month: 'short',
                           })}
                         </div>
-                        <div className="teacher-monthly-meta">
+                        <div className="mt-1 text-sm text-slate-500">
                           In: {record.checkin || '–'} · Out: {record.checkout || '–'}
                         </div>
                       </div>
-                      <div className={`teacher-monthly-badge teacher-monthly-${record.status || 'absent'}`}>
-                        {(record.status || 'absent').toUpperCase()}
+                      <div className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ring-1 ${getStatusMeta(record.status || 'absent')}`}>
+                        {record.status || 'absent'}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="teacher-photo-empty teacher-monthly-empty">
+                  <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-sm text-slate-500">
                     No attendance records for this month yet.
                   </div>
                 )}
