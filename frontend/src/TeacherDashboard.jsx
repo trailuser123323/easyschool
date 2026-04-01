@@ -508,7 +508,11 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
       }
 
       return data.photoUrl;
-    } catch {
+    } catch (error) {
+      if (teacherId) {
+        throw new Error(error?.message || 'Unable to upload photo.');
+      }
+
       return photo;
     }
   }

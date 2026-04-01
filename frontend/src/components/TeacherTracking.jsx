@@ -1,11 +1,27 @@
 import React, { useState } from 'react';
 import { resolveApiAssetUrl } from '../api';
 
+function getMonthAttendance(teacher, date = new Date()) {
+  const records = Array.isArray(teacher?.attendanceRecords) ? teacher.attendanceRecords : [];
+  const monthPrefix = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const monthlyRecords = records
+    .filter((record) => record?.date?.startsWith(monthPrefix))
+    .sort((left, right) => (right.date || '').localeCompare(left.date || ''));
+
+  return {
+    monthlyRecords,
+    present: monthlyRecords.filter((record) => record.status === 'present').length,
+    absent: monthlyRecords.filter((record) => record.status === 'absent').length,
+    leave: monthlyRecords.filter((record) => record.status === 'leave').length,
+  };
+}
+
 export default function TeacherTracking({ teachers }) {
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const presentCount = teachers.filter(t => t.status === 'present').length;
   const absentCount = teachers.filter(t => t.status === 'absent').length;
   const leaveCount = teachers.filter(t => t.status === 'leave').length;
+  const selectedTeacherAttendance = selectedTeacher ? getMonthAttendance(selectedTeacher) : null;
 
   return (
     <div className="tracking-container">
@@ -40,8 +56,8 @@ export default function TeacherTracking({ teachers }) {
                 type="button"
                 className="teacher-avatar teacher-avatar-button"
                 style={{ '--teacher-color': teacher.color }}
-                onClick={() => (teacher.loginPhoto || teacher.checkoutPhoto) && setSelectedTeacher(teacher)}
-                title={teacher.loginPhoto || teacher.checkoutPhoto ? `View ${teacher.name} attendance photos` : 'No attendance photo available'}
+                onClick={() => setSelectedTeacher(teacher)}
+                title={`View ${teacher.name} profile`}
               >
                 {teacher.initials}
               </button>
@@ -87,9 +103,8 @@ export default function TeacherTracking({ teachers }) {
               type="button"
               className="teacher-photo-button"
               onClick={() => setSelectedTeacher(teacher)}
-              disabled={!teacher.loginPhoto && !teacher.checkoutPhoto}
             >
-              {teacher.loginPhoto || teacher.checkoutPhoto ? 'View attendance photos' : 'No attendance photos'}
+              View teacher profile
             </button>
           </div>
         ))}
@@ -136,6 +151,52 @@ export default function TeacherTracking({ teachers }) {
                   />
                 ) : (
                   <div className="teacher-photo-empty">No check-out photo</div>
+                )}
+              </div>
+            </div>
+            <div className="teacher-monthly-section">
+              <div className="teacher-monthly-title">
+                Monthly Attendance · {new Date().toLocaleDateString([], { month: 'long', year: 'numeric' })}
+              </div>
+              <div className="teacher-monthly-stats">
+                <div className="teacher-monthly-stat">
+                  <strong>{selectedTeacherAttendance?.present || 0}</strong>
+                  <span>Present</span>
+                </div>
+                <div className="teacher-monthly-stat">
+                  <strong>{selectedTeacherAttendance?.absent || 0}</strong>
+                  <span>Absent</span>
+                </div>
+                <div className="teacher-monthly-stat">
+                  <strong>{selectedTeacherAttendance?.leave || 0}</strong>
+                  <span>Leave</span>
+                </div>
+              </div>
+              <div className="teacher-monthly-list">
+                {selectedTeacherAttendance?.monthlyRecords?.length ? (
+                  selectedTeacherAttendance.monthlyRecords.map((record) => (
+                    <div key={`${record.date}-${record.checkin}-${record.checkout}`} className="teacher-monthly-row">
+                      <div>
+                        <div className="teacher-monthly-date">
+                          {new Date(`${record.date}T00:00:00`).toLocaleDateString([], {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                        </div>
+                        <div className="teacher-monthly-meta">
+                          In: {record.checkin || '–'} · Out: {record.checkout || '–'}
+                        </div>
+                      </div>
+                      <div className={`teacher-monthly-badge teacher-monthly-${record.status || 'absent'}`}>
+                        {(record.status || 'absent').toUpperCase()}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="teacher-photo-empty teacher-monthly-empty">
+                    No attendance records for this month yet.
+                  </div>
                 )}
               </div>
             </div>

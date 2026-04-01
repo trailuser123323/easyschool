@@ -411,6 +411,10 @@ router.put("/teachers/:id", async (req, res) => {
 
 router.delete("/teachers/:id", async (req, res) => {
   try {
+    if (!req.params.id || !Teacher.db?.base?.Types?.ObjectId?.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid teacher id." });
+    }
+
     const teacher = await Teacher.findByIdAndDelete(req.params.id);
 
     if (!teacher) {

@@ -277,6 +277,105 @@
   gap: 10px;
 }
 
+.teacher-monthly-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.teacher-monthly-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.teacher-monthly-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.teacher-monthly-stat {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.teacher-monthly-stat strong {
+  font-size: 22px;
+  line-height: 1;
+  color: #111827;
+}
+
+.teacher-monthly-stat span {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.teacher-monthly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.teacher-monthly-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.teacher-monthly-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.teacher-monthly-meta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.teacher-monthly-badge {
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.teacher-monthly-present {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.teacher-monthly-absent {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.teacher-monthly-leave {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.teacher-monthly-empty {
+  min-height: 120px;
+}
+
 .teacher-photo-label {
   font-size: 13px;
   font-weight: 600;
@@ -295,6 +394,18 @@
   font-size: 13px;
   text-align: center;
   padding: 16px;
+}
+
+@media (max-width: 720px) {
+  .teacher-photo-grid,
+  .teacher-monthly-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-monthly-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .accounts-container {

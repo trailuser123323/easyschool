@@ -53,6 +53,7 @@ function normaliseTeacher(teacher, index) {
 
   return {
     id: todayTeacher.id ?? todayTeacher._id ?? index + 1,
+    _id: todayTeacher._id || '',
     name: todayTeacher.name,
     email: todayTeacher.email || '',
     initials: todayTeacher.initials || 'T',
@@ -94,7 +95,7 @@ function mergeTeacherRecords(remoteTeachers, fallbackTeachers) {
     if (!fallbackTeacher) return teacher;
 
     return fallbackTeacher.updatedAt > (teacher.updatedAt || 0)
-      ? { ...teacher, ...fallbackTeacher }
+      ? { ...teacher, ...fallbackTeacher, id: teacher.id, _id: teacher._id || fallbackTeacher._id || '' }
       : teacher;
   });
 
@@ -520,26 +521,28 @@ export default function AdminDashboard({ user, onLogout }) {
     const confirmed = window.confirm(`Delete teacher account for ${teacher.name}?`);
     if (!confirmed) return;
 
+    const teacherKey = teacher._id || teacher.id;
+    const hasRemoteId = Boolean(teacher._id);
+
     setDeletingTeacherId(teacher.id);
 
     try {
-      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
-        method: 'DELETE',
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.message || 'Unable to delete teacher.');
+      if (hasRemoteId) {
+        const response = await fetch(apiUrl(`/api/auth/teachers/${teacherKey}`), {
+          method: 'DELETE',
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.message || 'Unable to delete teacher.');
+        }
       }
 
-      const nextTeachers = teachers.filter((item) => String(item.id) !== String(teacher.id));
+      const nextTeachers = teachers.filter((item) => String(item._id || item.id) !== String(teacherKey));
       setTeachers(nextTeachers);
       removeFallbackTeacher(teacher);
-      showToast('Teacher deleted ✅');
+      showToast(hasRemoteId ? 'Teacher deleted ✅' : 'Teacher removed locally ✅');
     } catch (error) {
-      const nextTeachers = teachers.filter((item) => String(item.id) !== String(teacher.id));
-      setTeachers(nextTeachers);
-      removeFallbackTeacher(teacher);
-      showToast(error.message || 'Teacher deleted locally ⚠️');
+      showToast(error.message || 'Unable to delete teacher');
     } finally {
       setDeletingTeacherId('');
       setTimetableForm((current) => current.teacherId === String(teacher.id) ? { ...current, teacherId: '' } : current);
