@@ -59,6 +59,12 @@ function parseBulkTimetable(value) {
     .filter((entry) => entry.date && entry.timeSlot && entry.subject);
 }
 
+const QUICK_PERIODS = [
+  { label: 'Period 1', timeSlot: '09:00 - 09:45' },
+  { label: 'Period 2', timeSlot: '10:00 - 10:45' },
+  { label: 'Period 3', timeSlot: '11:00 - 11:45' },
+];
+
 function formatCheckin(lastLogin, fallback = '–') {
   if (!lastLogin) return fallback;
   return new Date(lastLogin).toLocaleTimeString([], {
@@ -247,6 +253,31 @@ function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
             />
             <small>One line per slot: <b>date | time | subject | room</b></small>
           </label>
+          <div className="form-field form-field-full">
+            <span>Quick 3-Period Builder</span>
+            <div className="quick-periods">
+              {QUICK_PERIODS.map((period) => (
+                <button
+                  key={period.label}
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => onChange({
+                    target: {
+                      name: 'bulkEntries',
+                      value: [
+                        form.bulkEntries.trim(),
+                        `${form.date || ''} | ${period.timeSlot} | ${form.subject || selectedTeacher?.subject || ''} | ${form.room || selectedTeacher?.class || ''}`,
+                      ].filter(Boolean).join('\n'),
+                    },
+                  })}
+                  disabled={!form.date}
+                >
+                  + {period.label}
+                </button>
+              ))}
+            </div>
+            <small>Pick a date first, then tap Period 1, 2, and 3 to build a simple daily timetable fast.</small>
+          </div>
         </div>
         <div className="form-actions">
           <button className="primary-action" type="submit" disabled={isSaving || teachers.length === 0}>
@@ -257,15 +288,28 @@ function TimetablePanel({ teachers, form, onChange, onSubmit, isSaving }) {
       <div className="timetable-list">
         {selectedTeacher ? (
           sortedEntries.length > 0 ? (
-            sortedEntries.map((entry, index) => (
-              <div key={`${entry.date || entry.day}-${entry.timeSlot || entry.period}-${index}`} className="timetable-row">
-                <div className="timetable-main">
-                  <div className="timetable-day">{formatEntryDay(entry)}</div>
-                  <div className="timetable-meta">{entry.timeSlot || entry.period} · {entry.subject}</div>
-                </div>
-                <div className="timetable-room">{entry.room || 'Room not set'}</div>
-              </div>
-            ))
+            <div className="timetable-table-wrap">
+              <table className="timetable-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Period</th>
+                    <th>Subject</th>
+                    <th>Room</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedEntries.map((entry, index) => (
+                    <tr key={`${entry.date || entry.day}-${entry.timeSlot || entry.period}-${index}`}>
+                      <td>{formatEntryDay(entry)}</td>
+                      <td>{entry.timeSlot || entry.period}</td>
+                      <td>{entry.subject}</td>
+                      <td>{entry.room || 'Room not set'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="timetable-empty">No timetable slots added for the selected month yet.</div>
           )

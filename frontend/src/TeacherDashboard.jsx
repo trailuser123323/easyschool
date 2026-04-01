@@ -1019,20 +1019,37 @@ function TimetableSection({ teacher }) {
             <div style={styles.timetableHint}>No entries for the selected month. Showing all assigned timetable entries instead.</div>
           )}
           {timetable.length > 0 ? (
-            <div style={styles.timetableList}>
-              {timetable.map((entry, index) => (
-                <div key={`${entry.date || entry.day}-${entry.timeSlot || entry.period}-${index}`} style={styles.timetableRow}>
-                  <div>
-                    <div style={styles.timetableDay}>
-                      {entry.date
-                        ? new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })
-                        : entry.day}
-                    </div>
-                    <div style={styles.timetableMeta}>{entry.timeSlot || entry.period} · {entry.subject}</div>
-                  </div>
-                  <div style={styles.timetableRoom}>{entry.room || 'Room not set'}</div>
-                </div>
-              ))}
+            <div style={styles.timetableTableWrap}>
+              <table style={styles.timetableTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.timetableHeadCell}>Date</th>
+                    <th style={styles.timetableHeadCell}>Day</th>
+                    <th style={styles.timetableHeadCell}>Period</th>
+                    <th style={styles.timetableHeadCell}>Subject</th>
+                    <th style={styles.timetableHeadCell}>Room</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timetable.map((entry, index) => (
+                    <tr key={`${entry.date || entry.day}-${entry.timeSlot || entry.period}-${index}`}>
+                      <td style={styles.timetableCell}>
+                        {entry.date
+                          ? new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short' })
+                          : '—'}
+                      </td>
+                      <td style={styles.timetableCell}>
+                        {entry.date
+                          ? new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { weekday: 'long' })
+                          : entry.day}
+                      </td>
+                      <td style={styles.timetableCellStrong}>{entry.timeSlot || entry.period}</td>
+                      <td style={styles.timetableCell}>{entry.subject}</td>
+                      <td style={styles.timetableCell}>{entry.room || 'Room not set'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div style={styles.timetableEmpty}>
@@ -1348,11 +1365,11 @@ const styles = {
   modalBtnPrimary: { background: '#4f46e5', color: '#fff', borderColor: '#4f46e5' },
   modalBtnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
   savingBanner: { marginTop: 14, padding: '10px 12px', borderRadius: 10, background: 'rgba(79,70,229,.08)', color: '#4338ca', fontSize: 13, fontWeight: 600, textAlign: 'center' },
-  timetableList: { display: 'flex', flexDirection: 'column', gap: 12 },
-  timetableRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, border: '1px solid #e4e2f0', borderRadius: 12, padding: '14px 16px', background: '#fff' },
-  timetableDay: { fontSize: 13, fontWeight: 700, color: '#1a1a2e' },
-  timetableMeta: { marginTop: 4, fontSize: 13, color: '#6b6b8a' },
-  timetableRoom: { fontSize: 13, fontWeight: 600, color: '#4f46e5' },
+  timetableTableWrap: { overflowX: 'auto', border: '1px solid #e4e2f0', borderRadius: 14, background: '#fff' },
+  timetableTable: { width: '100%', borderCollapse: 'collapse', minWidth: 720 },
+  timetableHeadCell: { textAlign: 'left', padding: '12px 14px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: '#6b6b8a', background: '#f8fafc', borderBottom: '1px solid #e4e2f0' },
+  timetableCell: { padding: '14px', fontSize: 13, color: '#4b5563', borderBottom: '1px solid #eef2f7' },
+  timetableCellStrong: { padding: '14px', fontSize: 13, fontWeight: 700, color: '#1a1a2e', borderBottom: '1px solid #eef2f7' },
   timetableEmpty: { border: '1px dashed #d8d4eb', borderRadius: 12, padding: '18px', background: '#f7f6fd', color: '#6b6b8a', fontSize: 13 },
   timetableHint: { marginBottom: 14, borderRadius: 10, padding: '10px 12px', background: '#eef2ff', color: '#4338ca', fontSize: 12, fontWeight: 600 },
   modalClose: { position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b6b8a' },
