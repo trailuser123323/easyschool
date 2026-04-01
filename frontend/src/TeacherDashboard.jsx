@@ -516,6 +516,20 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
     }
   }
 
+  async function handleDeletePhoto(action) {
+    const isCheckin = action === 'checkin';
+
+    await persistAttendance(isCheckin ? { loginPhoto: '' } : { checkoutPhoto: '' });
+
+    if (isCheckin) {
+      setCheckinPhoto('');
+    } else {
+      setCheckoutPhoto('');
+    }
+
+    showToast('🗑️', `${isCheckin ? 'Check-in' : 'Check-out'} photo deleted`);
+  }
+
   return (
     <div style={styles.card}>
       <div style={styles.cardHeader}>
@@ -562,21 +576,43 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
               <div style={styles.photoCard}>
                 <div style={styles.photoLabel}>Check In</div>
                 {resolvedCheckinPhoto ? (
-                  <a href={resolvedCheckinPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
-                    <img src={resolvedCheckinPhoto} alt="Check-in proof" style={styles.photoPreview} />
-                  </a>
+                  <>
+                    <a href={resolvedCheckinPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
+                      <img src={resolvedCheckinPhoto} alt="Check-in proof" style={styles.photoPreview} />
+                    </a>
+                    <div style={styles.photoActions}>
+                      <button style={styles.photoActionBtn} onClick={() => setModal('checkin')}>Add New Photo</button>
+                      <button style={{ ...styles.photoActionBtn, ...styles.photoActionBtnDanger }} onClick={() => handleDeletePhoto('checkin')}>Delete Photo</button>
+                    </div>
+                  </>
                 ) : (
-                  <div style={styles.photoEmpty}>No check-in photo yet</div>
+                  <>
+                    <div style={styles.photoEmpty}>No check-in photo yet</div>
+                    <div style={styles.photoActions}>
+                      <button style={styles.photoActionBtn} onClick={() => setModal('checkin')}>Add Photo</button>
+                    </div>
+                  </>
                 )}
               </div>
               <div style={styles.photoCard}>
                 <div style={styles.photoLabel}>Check Out</div>
                 {resolvedCheckoutPhoto ? (
-                  <a href={resolvedCheckoutPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
-                    <img src={resolvedCheckoutPhoto} alt="Check-out proof" style={styles.photoPreview} />
-                  </a>
+                  <>
+                    <a href={resolvedCheckoutPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
+                      <img src={resolvedCheckoutPhoto} alt="Check-out proof" style={styles.photoPreview} />
+                    </a>
+                    <div style={styles.photoActions}>
+                      <button style={styles.photoActionBtn} onClick={() => setModal('checkout')}>Add New Photo</button>
+                      <button style={{ ...styles.photoActionBtn, ...styles.photoActionBtnDanger }} onClick={() => handleDeletePhoto('checkout')}>Delete Photo</button>
+                    </div>
+                  </>
                 ) : (
-                  <div style={styles.photoEmpty}>No check-out photo yet</div>
+                  <>
+                    <div style={styles.photoEmpty}>No check-out photo yet</div>
+                    <div style={styles.photoActions}>
+                      <button style={styles.photoActionBtn} onClick={() => setModal('checkout')}>Add Photo</button>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1188,6 +1224,9 @@ const styles = {
   photoLink: { display: 'block', textDecoration: 'none' },
   photoPreview: { width: '100%', height: 160, objectFit: 'cover', display: 'block', background: '#111827' },
   photoEmpty: { height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, textAlign: 'center', fontSize: 12, color: '#6b6b8a', background: '#f8fafc' },
+  photoActions: { display: 'flex', gap: 8, padding: '10px 12px 12px' },
+  photoActionBtn: { flex: 1, border: '1px solid #d6d3f0', background: '#fff', color: '#4338ca', borderRadius: 8, padding: '8px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  photoActionBtnDanger: { color: '#b91c1c', borderColor: '#fecaca', background: '#fff5f5' },
   locationRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e4e2f0' },
   locTime: { fontSize: 12, color: '#6b6b8a', width: 60, flexShrink: 0 },
   locBadge: { fontSize: 12, padding: '3px 10px', borderRadius: 20, fontWeight: 500 },
