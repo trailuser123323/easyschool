@@ -221,11 +221,11 @@ function LocationPings() {
 }
 
 // ─── CAMERA MODAL ──────────────────────────────────────────
-function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
+function CameraModal({ action, onClose, onConfirm }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
-  const [photo, setPhoto] = useState(initialPhoto || "");
+  const [photo, setPhoto] = useState("");
   const [cameraStream, setCameraStream] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -370,6 +370,17 @@ function CameraModal({ action, onClose, onConfirm, initialPhoto }) {
         <div style={styles.cameraHint}>📍 Location captured automatically · <b>18.5204° N, 73.8567° E</b></div>
         <div style={styles.modalBtns}>
           <button style={styles.modalBtn} onClick={onClose}>Cancel</button>
+          {photo && (
+            <button
+              style={styles.modalBtn}
+              onClick={() => {
+                setPhoto("");
+                setCameraError("");
+              }}
+            >
+              Retake
+            </button>
+          )}
           {!photo && cameraError && (
             <button style={styles.modalBtn} onClick={() => fileInputRef.current?.click()}>
               Upload Instead
@@ -574,7 +585,7 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
         <LocationPings />
       </div>
       {modal && (
-        <CameraModal action={modal} onClose={() => setModal(null)} initialPhoto={modal === 'checkin' ? checkinPhoto : checkoutPhoto}
+        <CameraModal action={modal} onClose={() => setModal(null)}
           onConfirm={async ({ time, photo }) => {
             const currentAction = modal;
             setSavingAction(currentAction);
