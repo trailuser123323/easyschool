@@ -569,55 +569,53 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
           }}>
           <span>{onDuty ? '✅' : '🟢'}</span> {onDuty ? 'On Duty — Active' : 'Mark On Duty'}
         </button>
-        {(resolvedCheckinPhoto || resolvedCheckoutPhoto) && (
-          <div style={styles.photoSection}>
-            <div style={styles.photoSectionTitle}>Attendance Photo Proof</div>
-            <div style={styles.photoGrid}>
-              <div style={styles.photoCard}>
-                <div style={styles.photoLabel}>Check In</div>
-                {resolvedCheckinPhoto ? (
-                  <>
-                    <a href={resolvedCheckinPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
-                      <img src={resolvedCheckinPhoto} alt="Check-in proof" style={styles.photoPreview} />
-                    </a>
-                    <div style={styles.photoActions}>
-                      <button style={styles.photoActionBtn} onClick={() => setModal('checkin')}>Add New Photo</button>
-                      <button style={{ ...styles.photoActionBtn, ...styles.photoActionBtnDanger }} onClick={() => handleDeletePhoto('checkin')}>Delete Photo</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={styles.photoEmpty}>No check-in photo yet</div>
-                    <div style={styles.photoActions}>
-                      <button style={styles.photoActionBtn} onClick={() => setModal('checkin')}>Add Photo</button>
-                    </div>
-                  </>
-                )}
-              </div>
-              <div style={styles.photoCard}>
-                <div style={styles.photoLabel}>Check Out</div>
-                {resolvedCheckoutPhoto ? (
-                  <>
-                    <a href={resolvedCheckoutPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
-                      <img src={resolvedCheckoutPhoto} alt="Check-out proof" style={styles.photoPreview} />
-                    </a>
-                    <div style={styles.photoActions}>
-                      <button style={styles.photoActionBtn} onClick={() => setModal('checkout')}>Add New Photo</button>
-                      <button style={{ ...styles.photoActionBtn, ...styles.photoActionBtnDanger }} onClick={() => handleDeletePhoto('checkout')}>Delete Photo</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={styles.photoEmpty}>No check-out photo yet</div>
-                    <div style={styles.photoActions}>
-                      <button style={styles.photoActionBtn} onClick={() => setModal('checkout')}>Add Photo</button>
-                    </div>
-                  </>
-                )}
-              </div>
+        <div style={styles.photoSection}>
+          <div style={styles.photoSectionTitle}>Attendance Photo Proof</div>
+          <div style={styles.photoGrid}>
+            <div style={styles.photoCard}>
+              <div style={styles.photoLabel}>Check In</div>
+              {resolvedCheckinPhoto ? (
+                <>
+                  <a href={resolvedCheckinPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
+                    <img src={resolvedCheckinPhoto} alt="Check-in proof" style={styles.photoPreview} />
+                  </a>
+                  <div style={styles.photoActions}>
+                    <button style={styles.photoActionBtn} onClick={() => setModal('checkin')}>Retake Photo</button>
+                    <button style={{ ...styles.photoActionBtn, ...styles.photoActionBtnDanger }} onClick={() => handleDeletePhoto('checkin')}>Delete Photo</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={styles.photoEmpty}>No check-in photo yet</div>
+                  <div style={styles.photoActions}>
+                    <button style={styles.photoActionBtn} onClick={() => setModal('checkin')}>Add Photo</button>
+                  </div>
+                </>
+              )}
+            </div>
+            <div style={styles.photoCard}>
+              <div style={styles.photoLabel}>Check Out</div>
+              {resolvedCheckoutPhoto ? (
+                <>
+                  <a href={resolvedCheckoutPhoto} target="_blank" rel="noreferrer" style={styles.photoLink}>
+                    <img src={resolvedCheckoutPhoto} alt="Check-out proof" style={styles.photoPreview} />
+                  </a>
+                  <div style={styles.photoActions}>
+                    <button style={styles.photoActionBtn} onClick={() => setModal('checkout')}>Retake Photo</button>
+                    <button style={{ ...styles.photoActionBtn, ...styles.photoActionBtnDanger }} onClick={() => handleDeletePhoto('checkout')}>Delete Photo</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={styles.photoEmpty}>No check-out photo yet</div>
+                  <div style={styles.photoActions}>
+                    <button style={styles.photoActionBtn} onClick={() => setModal('checkout')}>Add Photo</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        )}
+        </div>
         <LocationPings />
       </div>
       {modal && (
