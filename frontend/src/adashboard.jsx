@@ -131,6 +131,10 @@ function buildInitials(name = '') {
     .join('') || 'T';
 }
 
+function isRemoteTeacherId(value) {
+  return typeof value === 'string' && /^[a-f\d]{24}$/i.test(value);
+}
+
 function createTeacherRecord(form, index = 0) {
   return normaliseTeacher({
     id: `teacher-${Date.now()}-${index}`,
@@ -642,9 +646,9 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!confirmed) return;
 
     const teacherKey = teacher._id || teacher.id;
-    const hasRemoteId = Boolean(teacher._id);
+    const hasRemoteId = Boolean(teacher._id) || isRemoteTeacherId(String(teacher.id || ''));
 
-    setDeletingTeacherId(teacher.id);
+    setDeletingTeacherId(String(teacher.id));
 
     try {
       if (hasRemoteId) {
@@ -665,7 +669,11 @@ export default function AdminDashboard({ user, onLogout }) {
       showToast(error.message || 'Unable to delete teacher');
     } finally {
       setDeletingTeacherId('');
-      setTimetableForm((current) => current.teacherId === String(teacher.id) ? { ...current, teacherId: '' } : current);
+      setTimetableForm((current) => (
+        current.teacherId === String(teacher.id) || current.teacherId === String(teacherKey)
+          ? { ...current, teacherId: '' }
+          : current
+      ));
     }
   };
 
