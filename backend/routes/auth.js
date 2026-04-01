@@ -354,6 +354,59 @@ router.post("/announcements", async (req, res) => {
   }
 });
 
+router.put("/announcements/:id", async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
+  if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid announcement id." });
+  }
+
+  const title = req.body?.title?.trim();
+  const body = req.body?.body?.trim();
+
+  if (!title || !body) {
+    return res.status(400).json({ message: "Announcement title and body are required." });
+  }
+
+  try {
+    const announcement = await Announcement.findByIdAndUpdate(
+      req.params.id,
+      { title, body },
+      { new: true }
+    );
+
+    if (!announcement) {
+      return res.status(404).json({ message: "Announcement not found." });
+    }
+
+    return res.json(formatAnnouncement(announcement));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.delete("/announcements/:id", async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
+  if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid announcement id." });
+  }
+
+  try {
+    const announcement = await Announcement.findByIdAndDelete(req.params.id);
+
+    if (!announcement) {
+      return res.status(404).json({ message: "Announcement not found." });
+    }
+
+    return res.json({ message: "Announcement deleted successfully." });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.post("/teachers", async (req, res) => {
   if (!ensureDatabaseReady(res)) return;
 

@@ -474,6 +474,34 @@ export default function AdminDashboard({ user, onLogout }) {
     showToast('Announcement posted ✅');
   };
 
+  const handleUpdateAnnouncement = async (id, title, body) => {
+    const response = await fetch(apiUrl(`/api/auth/announcements/${id}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to update announcement.');
+    }
+
+    setAnnouncements((current) => current.map((announcement) => announcement.id === id ? data : announcement));
+    showToast('Announcement updated ✅');
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    const response = await fetch(apiUrl(`/api/auth/announcements/${id}`), {
+      method: 'DELETE',
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to delete announcement.');
+    }
+
+    setAnnouncements((current) => current.filter((announcement) => announcement.id !== id));
+    showToast('Announcement deleted ✅');
+  };
+
   const handleTeacherFormChange = ({ target }) => {
     const { name, value } = target;
     setTeacherForm((current) => ({ ...current, [name]: value }));
@@ -651,7 +679,14 @@ export default function AdminDashboard({ user, onLogout }) {
             isSaving={isSavingTimetable}
           />
         )}
-        {activeSection === 'notices' && <NoticeBoard announcements={announcements} onAddAnnouncement={handleAddAnnouncement} />}
+        {activeSection === 'notices' && (
+          <NoticeBoard
+            announcements={announcements}
+            onAddAnnouncement={handleAddAnnouncement}
+            onUpdateAnnouncement={handleUpdateAnnouncement}
+            onDeleteAnnouncement={handleDeleteAnnouncement}
+          />
+        )}
         {activeSection === 'leaves' && <LeaveRequests requests={leaveRequests} onApprove={handleApproveLeave} onReject={handleRejectLeave} />}
       </div>
       

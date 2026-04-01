@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 
-export default function NoticeBoard({ announcements, onAddAnnouncement }) {
+export default function NoticeBoard({ announcements, onAddAnnouncement, onUpdateAnnouncement, onDeleteAnnouncement }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,11 +15,16 @@ export default function NoticeBoard({ announcements, onAddAnnouncement }) {
     setError('');
 
     try {
-      await onAddAnnouncement(title, body);
+      if (editingId) {
+        await onUpdateAnnouncement(editingId, title, body);
+      } else {
+        await onAddAnnouncement(title, body);
+      }
       setTitle('');
       setBody('');
+      setEditingId('');
     } catch (submitError) {
-      setError(submitError.message || 'Unable to post announcement.');
+      setError(submitError.message || 'Unable to save announcement.');
     } finally {
       setSaving(false);
     }
@@ -54,8 +60,23 @@ export default function NoticeBoard({ announcements, onAddAnnouncement }) {
           />
         </div>
         <button type="submit" className="btn-submit">
-          {saving ? 'Posting...' : '📤 Post Announcement'}
+          {saving ? (editingId ? 'Saving...' : 'Posting...') : (editingId ? '💾 Save Announcement' : '📤 Post Announcement')}
         </button>
+        {editingId && (
+          <button
+            type="button"
+            className="btn-submit"
+            style={{ background: '#e5e7eb', color: '#111827' }}
+            onClick={() => {
+              setEditingId('');
+              setTitle('');
+              setBody('');
+              setError('');
+            }}
+          >
+            Cancel Edit
+          </button>
+        )}
         {error && <div style={{ color: '#b91c1c', fontSize: '13px' }}>{error}</div>}
       </form>
 
@@ -69,6 +90,40 @@ export default function NoticeBoard({ announcements, onAddAnnouncement }) {
                   <div className="notice-title">{announcement.title}</div>
                   <div className="notice-body">{announcement.body}</div>
                   <div className="notice-time">🕐 {announcement.time}</div>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      className="btn-submit"
+                      style={{ width: 'auto', padding: '8px 12px', background: '#eef2ff', color: '#4338ca' }}
+                      onClick={() => {
+                        setEditingId(announcement.id);
+                        setTitle(announcement.title);
+                        setBody(announcement.body);
+                        setError('');
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-submit"
+                      style={{ width: 'auto', padding: '8px 12px', background: '#fee2e2', color: '#b91c1c' }}
+                      onClick={async () => {
+                        try {
+                          await onDeleteAnnouncement(announcement.id);
+                          if (editingId === announcement.id) {
+                            setEditingId('');
+                            setTitle('');
+                            setBody('');
+                          }
+                        } catch (deleteError) {
+                          setError(deleteError.message || 'Unable to delete announcement.');
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
