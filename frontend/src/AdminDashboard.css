@@ -85,15 +85,12 @@
 }
 
 .tracking-stats-grid {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 4px;
 }
 
 .tracking-stat-card {
-  flex: 0 0 132px;
   border-radius: 12px;
   padding: 12px 14px;
   border: 1px solid transparent;
