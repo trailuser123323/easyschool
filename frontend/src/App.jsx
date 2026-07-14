@@ -28,11 +28,18 @@ function AppRoutes() {
   };
 
   return (
-    <Routes>
+      <Routes>
       <Route path="/"        element={<Homepage />} />
       <Route path="/login"   element={<Login onLogin={handleLogin} />} />
       <Route path="/teacher" element={user ? <TeacherDashboard teacher={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-      <Route path="/admin"   element={user ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+      <Route
+        path="/admin"
+        element={
+          user
+            ? (user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/teacher" />)
+            : <Navigate to="/login" />
+        }
+      />
     </Routes>
   );
 }

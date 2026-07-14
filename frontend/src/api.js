@@ -8,6 +8,29 @@ export function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
 }
 
+export async function authFetch(path, options = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers = { ...(options.headers || {}) };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const opts = { ...options, headers };
+  const res = await fetch(path, opts);
+
+  // Surface 401 so callers can handle re-authentication if needed
+  if (res.status === 401) {
+    try {
+      // clear stored user/token on auth failure
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch (e) {}
+  }
+
+  return res;
+}
+
 export function resolveApiAssetUrl(path) {
   if (!path) return "";
   if (path.startsWith("data:")) return path;

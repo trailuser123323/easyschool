@@ -4,7 +4,7 @@ import AdminSidebar from './components/AdminSidebar';
 import TeacherTracking from './components/TeacherTracking';
 import NoticeBoard from './components/NoticeBoard';
 import LeaveRequests from './components/LeaveRequests';
-import { apiUrl } from './api';
+import { apiUrl, authFetch } from './api';
 import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from './attendance';
 import { getFallbackTeachers, removeFallbackTeacher, saveFallbackTeachers } from './demoData';
 
@@ -413,7 +413,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
     async function loadTeachers() {
       try {
-        const response = await fetch(apiUrl('/api/auth/teachers'));
+        const response = await authFetch(apiUrl('/api/auth/teachers'));
         const data = await response.json().catch(() => []);
         if (!response.ok) {
           throw new Error(data.message || 'Unable to load teachers.');
@@ -450,7 +450,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
     async function loadAnnouncements() {
       try {
-        const response = await fetch(apiUrl('/api/auth/announcements'));
+        const response = await authFetch(apiUrl('/api/auth/announcements'));
         const data = await response.json().catch(() => []);
         if (!response.ok) {
           throw new Error(data.message || 'Unable to load announcements.');
@@ -502,7 +502,7 @@ export default function AdminDashboard({ user, onLogout }) {
       item.id === request.requestId ? { ...item, status: 'approved' } : item
     );
     try {
-      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
+      const response = await authFetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leaveRequests: nextLeaveRequests }),
@@ -523,7 +523,7 @@ export default function AdminDashboard({ user, onLogout }) {
       item.id === request.requestId ? { ...item, status: 'rejected' } : item
     );
     try {
-      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
+      const response = await authFetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leaveRequests: nextLeaveRequests }),
@@ -538,7 +538,7 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const handleAddAnnouncement = async (title, body) => {
-    const response = await fetch(apiUrl('/api/auth/announcements'), {
+    const response = await authFetch(apiUrl('/api/auth/announcements'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, body }),
@@ -553,7 +553,7 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const handleUpdateAnnouncement = async (id, title, body) => {
-    const response = await fetch(apiUrl(`/api/auth/announcements/${id}`), {
+    const response = await authFetch(apiUrl(`/api/auth/announcements/${id}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, body }),
@@ -568,7 +568,7 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const handleDeleteAnnouncement = async (id) => {
-    const response = await fetch(apiUrl(`/api/auth/announcements/${id}`), {
+    const response = await authFetch(apiUrl(`/api/auth/announcements/${id}`), {
       method: 'DELETE',
     });
     const data = await response.json().catch(() => ({}));
@@ -593,7 +593,7 @@ export default function AdminDashboard({ user, onLogout }) {
     setIsSavingTeacher(true);
 
     try {
-      const response = await fetch(apiUrl('/api/auth/teachers'), {
+      const response = await authFetch(apiUrl('/api/auth/teachers'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -652,7 +652,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
     try {
       if (hasRemoteId) {
-        const response = await fetch(apiUrl(`/api/auth/teachers/${teacherKey}`), {
+        const response = await authFetch(apiUrl(`/api/auth/teachers/${teacherKey}`), {
           method: 'DELETE',
         });
         const data = await response.json().catch(() => ({}));
@@ -711,7 +711,7 @@ export default function AdminDashboard({ user, onLogout }) {
     setIsSavingTimetable(true);
 
     try {
-      const response = await fetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
+      const response = await authFetch(apiUrl(`/api/auth/teachers/${teacher.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timetable: nextTimetable }),

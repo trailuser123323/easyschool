@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { apiUrl, resolveApiAssetUrl } from "./api";
+import { apiUrl, resolveApiAssetUrl, authFetch } from "./api";
 import { getDateKey, getDelayUntilNextDay, normaliseTeacherForToday } from "./attendance";
 import { upsertFallbackTeacher } from "./demoData";
 
@@ -452,7 +452,7 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
     }
 
     try {
-      const response = await fetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
+      const response = await authFetch(apiUrl(`/api/auth/teachers/${teacherId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(mergedFields),
@@ -497,7 +497,7 @@ function AttendanceCard({ teacher, showToast, onTeacherUpdate }) {
     formData.append('photo', blob, `${action}-${Date.now()}.jpg`);
 
     try {
-      const response = await fetch(apiUrl('/api/auth/teachers/upload'), {
+      const response = await authFetch(apiUrl('/api/auth/teachers/upload'), {
         method: 'POST',
         body: formData,
       });
@@ -798,7 +798,7 @@ function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
               };
               const nextLeaveRequests = [nextRequest, ...normaliseLeaveRequests(teacher?.leaveRequests)];
               try {
-                const response = await fetch(apiUrl(`/api/auth/teachers/${teacher?.id || teacher?._id}`), {
+                const response = await authFetch(apiUrl(`/api/auth/teachers/${teacher?.id || teacher?._id}`), {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ leaveRequests: nextLeaveRequests }),
@@ -1165,7 +1165,7 @@ export default function TeacherDashboard({ teacher, onLogout }) {
 
     async function loadAnnouncements() {
       try {
-        const response = await fetch(apiUrl('/api/auth/announcements'));
+        const response = await authFetch(apiUrl('/api/auth/announcements'));
         const data = await response.json().catch(() => []);
         if (!response.ok) {
           throw new Error(data.message || 'Unable to load announcements.');

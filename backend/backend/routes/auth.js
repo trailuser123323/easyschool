@@ -4,6 +4,9 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { fileURLToPath } from "url";
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
 import Announcement from "../models/Announcement.js";
 import Teacher from "../models/Teacher.js";
@@ -12,7 +15,9 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadsDir = path.join(__dirname, "..", "uploads");
-const sessions = new Map();
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
+const JWT_EXPIRES = process.env.JWT_EXPIRES || "24h";
 
 fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -82,6 +87,67 @@ function serializeAnnouncement(announcement) {
 
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value || "");
+}
+
+function validateLoginPayload(req, res, next) {
+  const { email, password } = req.body || {};
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+  if (!isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ message: "A valid email is required." });
+  }
+
+  if (typeof password !== "string" || password.trim().length === 0) {
+    return res.status(400).json({ message: "Password is required." });
+  }
+
+  req.body.email = normalizedEmail;
+  return next();
+}
+
+function validateAnnouncementPayload(req, res, next) {
+  const title = req.body?.title?.trim();
+  const body = req.body?.body?.trim();
+
+  if (!title || title.length < 3) {
+    return res.status(400).json({ message: "Title must be at least 3 characters long." });
+  }
+
+  if (!body || body.length < 5) {
+    return res.status(400).json({ message: "Body must be at least 5 characters long." });
+  }
+
+  req.body.title = title;
+  req.body.body = body;
+  return next();
+}
+
+function validateTeacherPayload(req, res, next) {
+  const { name, email, password } = req.body || {};
+  const trimmedName = typeof name === "string" ? name.trim() : "";
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const trimmedPassword = typeof password === "string" ? password.trim() : "";
+
+  if (!trimmedName || trimmedName.length < 2) {
+    return res.status(400).json({ message: "Name must be at least 2 characters long." });
+  }
+
+  if (!isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ message: "A valid email is required." });
+  }
+
+  if (trimmedPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long." });
+  }
+
+  req.body.name = trimmedName;
+  req.body.email = normalizedEmail;
+  req.body.password = trimmedPassword;
+  return next();
 }
 
 function normaliseTeacherTimetable(timetable = []) {
@@ -163,13 +229,8 @@ function updateAttendanceRecord(teacher, updates) {
   teacher.attendanceRecords = records.slice(0, 90);
 }
 
-function createSession(user) {
-  const token = crypto.randomBytes(24).toString("hex");
-  sessions.set(token, {
-    userId: String(user._id),
-    role: user.role,
-  });
-  return token;
+function createToken(user) {
+  return jwt.sign({ userId: String(user._id), role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
 }
 
 async function attachAuthUser(req, _res, next) {
@@ -180,24 +241,22 @@ async function attachAuthUser(req, _res, next) {
     return next();
   }
 
-  const session = sessions.get(token);
-  if (!session) {
-    return next();
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const model = payload.role === "admin" ? Admin : Teacher;
+    const user = await model.findById(payload.userId);
+    if (!user) return next();
+
+    req.auth = {
+      token,
+      role: payload.role,
+      userId: payload.userId,
+      user,
+    };
+  } catch (err) {
+    // invalid token — ignore and continue as unauthenticated
   }
 
-  const model = session.role === "admin" ? Admin : Teacher;
-  const user = await model.findById(session.userId);
-  if (!user) {
-    sessions.delete(token);
-    return next();
-  }
-
-  req.auth = {
-    token,
-    role: session.role,
-    userId: session.userId,
-    user,
-  };
   return next();
 }
 
@@ -241,12 +300,32 @@ function buildInitials(name = "") {
 }
 
 async function seedIfEmpty() {
+  if (mongoose.connection.readyState !== 1) {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Database not ready in time.")), 15000);
+      const finish = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+
+      if (mongoose.connection.readyState === 1) {
+        finish();
+        return;
+      }
+
+      mongoose.connection.once("connected", finish);
+      mongoose.connection.once("error", reject);
+    });
+  }
+
   const adminCount = await Admin.countDocuments();
   if (adminCount === 0) {
+    const pwd = process.env.SEED_ADMIN_PASSWORD || 'changeme1234';
+    const hashed = await bcrypt.hash(pwd, 10);
     await Admin.create({
       name: "Admin",
       email: "admin@gmail.com",
-      password: "1234",
+      password: hashed,
       role: "admin",
       initials: "AD",
     });
@@ -254,10 +333,12 @@ async function seedIfEmpty() {
 
   const teacherCount = await Teacher.countDocuments();
   if (teacherCount === 0) {
+    const teacherPwd = process.env.SEED_TEACHER_PASSWORD || 'teacher12345';
+    const teacherHashed = await bcrypt.hash(teacherPwd, 10);
     await Teacher.create({
       name: "Priya Ramesh",
       email: "teacher1@gmail.com",
-      password: "12345",
+      password: teacherHashed,
       role: "teacher",
       subject: "Science",
       class: "9A",
@@ -312,22 +393,48 @@ seedIfEmpty().catch((error) => {
   console.error("Seed error:", error);
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", validateLoginPayload, async (req, res) => {
   const { email, password } = req.body;
   const normalizedEmail = email?.trim().toLowerCase();
 
   try {
     const adminUser = await Admin.findOne({ email: normalizedEmail });
     if (adminUser) {
-      if (adminUser.password !== password) {
-        return res.status(401).json({ message: "Invalid email or password." });
+      let match = false;
+      if (typeof adminUser.password === 'string' && adminUser.password.startsWith('$2')) {
+        match = await bcrypt.compare(password, adminUser.password);
+      } else {
+        match = adminUser.password === password;
+        if (match) {
+          // upgrade to hashed password
+          adminUser.password = await bcrypt.hash(password, 10);
+          await adminUser.save();
+        }
       }
 
-      return res.json({ token: createSession(adminUser), user: serializeAdmin(adminUser) });
+      if (!match) return res.status(401).json({ message: 'Invalid email or password.' });
+
+      return res.json({ token: createToken(adminUser), user: serializeAdmin(adminUser) });
     }
 
     const teacher = await Teacher.findOne({ email: normalizedEmail });
-    if (!teacher || teacher.password !== password) {
+    if (!teacher) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    // support legacy plaintext and hashed passwords; upgrade plaintext to hash
+    let teacherMatch = false;
+    if (typeof teacher.password === 'string' && teacher.password.startsWith('$2')) {
+      teacherMatch = await bcrypt.compare(password, teacher.password);
+    } else {
+      teacherMatch = teacher.password === password;
+      if (teacherMatch) {
+        teacher.password = await bcrypt.hash(password, 10);
+        await teacher.save();
+      }
+    }
+
+    if (!teacherMatch) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
@@ -343,7 +450,7 @@ router.post("/login", async (req, res) => {
     await teacher.save();
 
     return res.json({
-      token: createSession(teacher),
+      token: createToken(teacher),
       user: serializeTeacher(teacher),
     });
   } catch (error) {
@@ -364,7 +471,7 @@ router.get("/announcements", requireAuth, async (_req, res) => {
   }
 });
 
-router.post("/announcements", requireAuth, requireAdmin, async (req, res) => {
+router.post("/announcements", requireAuth, requireAdmin, validateAnnouncementPayload, async (req, res) => {
   const title = req.body?.title?.trim();
   const body = req.body?.body?.trim();
 
@@ -389,7 +496,7 @@ router.post("/announcements", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-router.put("/announcements/:id", requireAuth, requireAdmin, async (req, res) => {
+router.put("/announcements/:id", requireAuth, requireAdmin, validateAnnouncementPayload, async (req, res) => {
   if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
     return res.status(400).json({ message: "Invalid announcement id." });
   }
@@ -463,7 +570,7 @@ router.get("/teachers/:id", requireAuth, canModifyTeacher, async (req, res) => {
   }
 });
 
-router.post("/teachers", requireAuth, requireAdmin, async (req, res) => {
+router.post("/teachers", requireAuth, requireAdmin, validateTeacherPayload, async (req, res) => {
   const {
     name,
     email,
@@ -490,7 +597,7 @@ router.post("/teachers", requireAuth, requireAdmin, async (req, res) => {
     const teacher = await Teacher.create({
       name: trimmedName,
       email: normalizedEmail,
-      password: trimmedPassword,
+      password: await bcrypt.hash(trimmedPassword, 10),
       role: "teacher",
       subject: subject?.trim() || "General",
       class: className?.trim() || "–",
