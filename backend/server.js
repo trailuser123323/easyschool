@@ -18,8 +18,19 @@ const isDirectRun = process.argv[1]
   ? import.meta.url === pathToFileURL(process.argv[1]).href
   : false;
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  ...(process.env.CLIENT_URL || "").split(",").map((origin) => origin.trim()).filter(Boolean),
+];
+
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5173"],
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Origin not allowed by CORS."));
+  },
 }));
 
 app.use(express.json({ limit: "10mb" }));

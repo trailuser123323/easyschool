@@ -17,11 +17,14 @@ Configure `.env` with:
 PORT=5000
 MONGO_URI=mongodb://127.0.0.1:27017/easyschool
 JWT_SECRET=change_this_secret
+CLIENT_URL=https://easyschool-ashy.vercel.app
 ```
 
 For MongoDB Atlas, replace `MONGO_URI` with the Atlas connection string and keep
 the database user credentials in the connection string managed outside source
 control. MongoDB must be reachable before using login or prompt endpoints.
+
+`CLIENT_URL` may contain multiple comma-separated frontend URLs when needed.
 
 The API runs on `http://localhost:5000`. Start the existing frontend separately:
 
