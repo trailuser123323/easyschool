@@ -1,4 +1,51 @@
-# GitHub Codespaces ♥️ React
+# EasySchool backend
+
+This directory contains the Node.js and Express API for EasySchool.
+
+## Setup
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Configure `.env` with:
+
+```env
+PORT=5000
+MONGO_URI=mongodb://127.0.0.1:27017/easyschool
+JWT_SECRET=change_this_secret
+```
+
+For MongoDB Atlas, replace `MONGO_URI` with the Atlas connection string and keep
+the database user credentials in the connection string managed outside source
+control. MongoDB must be reachable before using login or prompt endpoints.
+
+The API runs on `http://localhost:5000`. Start the existing frontend separately:
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Prompt endpoints require `Authorization: Bearer <jwt>` from `/api/auth/login`.
+
+## API
+
+- `GET /` health check
+- `POST /api/auth/login` login
+- `GET|POST /api/prompts` list or create owned prompts
+- `GET|PUT|DELETE /api/prompts/:id` manage an owned prompt
+
+## Development
+
+```bash
+npm start
+npm run dev
+```
 
 Welcome to your shiny new Codespace running React! We've got everything fired up and running for you to explore React.
 

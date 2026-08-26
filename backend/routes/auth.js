@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import Admin from "../models/Admin.js";
 import Announcement from "../models/Announcement.js";
 import Teacher from "../models/Teacher.js";
+import { issueToken, verifyPassword } from "../controllers/authController.js";
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -257,9 +258,11 @@ async function seedIfEmpty() {
   }
 }
 
-seedIfEmpty().catch((error) => {
-  console.error("Seed error:", error);
-});
+if (process.env.MONGO_URI) {
+  seedIfEmpty().catch((error) => {
+    console.error("Seed error:", error);
+  });
+}
 
 router.post("/login", async (req, res) => {
   if (!ensureDatabaseReady(res)) return;
@@ -267,20 +270,24 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   const normalizedEmail = email?.trim().toLowerCase();
 
+  if (!normalizedEmail || typeof password !== "string" || !password) {
+    return res.status(400).json({ message: "Email and password are required." });
+  }
+
   try {
     const adminUser = await Admin.findOne({ email: normalizedEmail });
     if (adminUser) {
-      if (adminUser.password !== password) {
+      if (!(await verifyPassword(adminUser, password))) {
         return res.status(401).json({ message: "Invalid email or password." });
       }
 
       const userData = adminUser.toObject();
       delete userData.password;
-      return res.json({ token: "admin-token-" + adminUser._id, user: userData });
+      return res.json({ token: issueToken(adminUser), user: userData });
     }
 
     const teacher = await Teacher.findOne({ email: normalizedEmail });
-    if (!teacher || teacher.password !== password) {
+    if (!teacher || !(await verifyPassword(teacher, password))) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
@@ -296,7 +303,7 @@ router.post("/login", async (req, res) => {
     await teacher.save();
 
     return res.json({
-      token: "teacher-token-" + teacher._id,
+      token: issueToken(teacher),
       user: serializeTeacher(teacher),
     });
   } catch (error) {

@@ -31,6 +31,18 @@ export async function authFetch(path, options = {}) {
   return res;
 }
 
+export async function createPrompt(data) {
+  return authFetch(apiUrl("/api/prompts"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getPrompts() {
+  return authFetch(apiUrl("/api/prompts"));
+}
+
 export function resolveApiAssetUrl(path) {
   if (!path) return "";
   if (path.startsWith("data:")) return path;
