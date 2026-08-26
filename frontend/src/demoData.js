@@ -3,7 +3,14 @@ const LEAVE_REQUESTS_KEY = "teacher_leave_requests_fallback";
 const ANNOUNCEMENTS_KEY = "school_announcements";
 export const ANNOUNCEMENTS_UPDATED_EVENT = "school-announcements-updated";
 
-const DEFAULT_TEACHERS = [
+const DEFAULT_TEACHERS = [];
+const DEMO_TEACHER_EMAILS = new Set([
+  "gstar@gmail.com",
+  "teacher1@gmail.com",
+  "niha@gmail.com",
+  "admin@gmail.com",
+]);
+/*
   {
     id: "demo-teacher-1",
     name: "Ganeshsir",
@@ -92,11 +99,13 @@ const DEFAULT_TEACHERS = [
     lastCheckout: null,
     updatedAt: 0,
   },
-];
+]; */
 
 function mergeDefaultTeachers(storedTeachers) {
   const stored = Array.isArray(storedTeachers) ? storedTeachers : [];
-  const merged = [...stored];
+  const merged = stored.filter((teacher) => (
+    !DEMO_TEACHER_EMAILS.has(teacher?.email) && !String(teacher?.id || '').startsWith('demo-teacher-')
+  ));
 
   DEFAULT_TEACHERS.forEach((teacher) => {
     const index = merged.findIndex((item) => item?.email === teacher.email);

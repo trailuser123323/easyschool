@@ -8,6 +8,7 @@ import Admin from "../models/Admin.js";
 import Announcement from "../models/Announcement.js";
 import Teacher from "../models/Teacher.js";
 import { issueToken, verifyPassword } from "../controllers/authController.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -247,6 +248,23 @@ router.get("/teachers", async (_req, res) => {
   }
 });
 
+router.get("/teachers/:id", requireAuth, async (req, res) => {
+  if (!ensureDatabaseReady(res)) return;
+
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid teacher id." });
+  }
+
+  try {
+    const teacher = await Teacher.findById(req.params.id);
+    if (!teacher) return res.status(404).json({ message: "Teacher not found." });
+    return res.json(serializeTeacher(teacher));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.get("/announcements", async (_req, res) => {
   if (!ensureDatabaseReady(res)) return;
 
@@ -403,7 +421,7 @@ router.post("/teachers/upload", upload.single("photo"), (req, res) => {
   });
 });
 
-router.put("/teachers/:id", async (req, res) => {
+router.put("/teachers/:id", requireAuth, async (req, res) => {
   if (!ensureDatabaseReady(res)) return;
 
   try {

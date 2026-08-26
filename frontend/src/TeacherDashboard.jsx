@@ -1149,6 +1149,31 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   }, [teacher]);
 
   useEffect(() => {
+    const teacherId = teacher?._id || teacher?.id;
+    if (!teacherId) return undefined;
+
+    let cancelled = false;
+    async function loadTeacher() {
+      try {
+        const response = await authFetch(apiUrl(`/api/auth/teachers/${teacherId}`));
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || cancelled) return;
+        setTeacherState(normaliseTeacherForToday(data));
+        localStorage.setItem('user', JSON.stringify({ ...data, token: localStorage.getItem('token') }));
+      } catch {
+        // Keep the login snapshot visible if a refresh fails temporarily.
+      }
+    }
+
+    loadTeacher();
+    const intervalId = window.setInterval(loadTeacher, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [teacher?._id, teacher?.id]);
+
+  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setTodayKey(getDateKey());
     }, getDelayUntilNextDay());
