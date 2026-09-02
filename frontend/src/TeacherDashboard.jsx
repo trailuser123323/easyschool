@@ -46,19 +46,43 @@ function normaliseLeaveRequests(leaveRequests) {
 function buildAttendanceMap(teacher, now = new Date()) {
   const records = {};
 
+  function setRecord(date, status, checkin = '–', checkout = '–') {
+    records[`${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`] = {
+      s: status,
+      i: checkin,
+      o: checkout,
+    };
+  }
+
   if (Array.isArray(teacher?.attendanceRecords)) {
     teacher.attendanceRecords.forEach((record) => {
       if (!record?.date) return;
       const parsedDate = new Date(`${record.date}T00:00:00`);
       if (Number.isNaN(parsedDate.getTime())) return;
 
-      records[`${parsedDate.getFullYear()}-${parsedDate.getMonth() + 1}-${parsedDate.getDate()}`] = {
-        s: record.status || "absent",
-        i: record.checkin || "–",
-        o: record.checkout || "–",
-      };
+      setRecord(parsedDate, record.status || "absent", record.checkin || "–", record.checkout || "–");
     });
   }
+
+  normaliseLeaveRequests(teacher?.leaveRequests).forEach((request) => {
+    if (request?.status?.toLowerCase() !== 'approved') return;
+
+    const dateParts = request.fromDate
+      ? [request.fromDate, request.toDate || request.fromDate]
+      : String(request.dates || '').split(/\s+[–-]\s+/);
+    if (!dateParts[0]) return;
+
+    const parseLeaveDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T00:00:00`)
+      : new Date(value);
+    const fromDate = parseLeaveDate(dateParts[0]);
+    const toDate = parseLeaveDate(dateParts[1] || dateParts[0]);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) return;
+
+    for (const date = new Date(fromDate); date <= toDate; date.setDate(date.getDate() + 1)) {
+      setRecord(new Date(date), 'leave');
+    }
+  });
 
   const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
   if (!records[todayKey] && (teacher?.status || (teacher?.checkin && teacher.checkin !== "–"))) {
@@ -792,6 +816,8 @@ function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
                 id: `leave-request-${Date.now()}`,
                 type: nextLeave.type,
                 dates: nextLeave.dates,
+                fromDate: form.fromDate,
+                toDate: form.toDate || form.fromDate,
                 status: 'pending',
                 reason: form.reason.trim(),
                 createdAtLabel: 'Just now',
@@ -850,8 +876,12 @@ function Calendar({ teacher }) {
   for (let d = 1; d <= dim; d++) {
     const key = cY + '-' + (cM + 1) + '-' + d;
     const data = attendanceMap[key];
+    const cellDate = new Date(cY, cM, d);
     const today = d === NOW.getDate() && cM === NOW.getMonth() && cY === NOW.getFullYear();
-    cells.push({ day: d, type: 'current', data, today, key });
+    const isPastWeekday = cellDate < new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate())
+      && cellDate.getDay() !== 0
+      && cellDate.getDay() !== 6;
+    cells.push({ day: d, type: 'current', data: data || (isPastWeekday ? { s: 'absent', i: '–', o: '–' } : null), today, key });
   }
   const rem = (7 - (cells.length % 7)) % 7;
   for (let i = 1; i <= rem; i++) cells.push({ day: i, type: 'other' });

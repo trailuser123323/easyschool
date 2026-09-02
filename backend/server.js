@@ -1,8 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { pathToFileURL } from "url";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import promptRoutes from "./routes/prompts.js";
@@ -12,8 +11,6 @@ import { errorHandler } from "./middleware/errorHandler.js";
 
 dotenv.config();
 const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const isDirectRun = process.argv[1]
   ? import.meta.url === pathToFileURL(process.argv[1]).href
   : false;
@@ -41,8 +38,6 @@ app.options(/.*/, cors(corsOptions));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
 connectDatabase();
 
 app.use("/api/auth", authRoutes);

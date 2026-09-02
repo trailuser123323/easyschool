@@ -1,9 +1,6 @@
 import express from "express";
-import fs from "fs";
 import mongoose from "mongoose";
-import path from "path";
 import multer from "multer";
-import { fileURLToPath } from "url";
 import Admin from "../models/Admin.js";
 import Announcement from "../models/Announcement.js";
 import Teacher from "../models/Teacher.js";
@@ -11,22 +8,8 @@ import { issueToken, verifyPassword } from "../controllers/authController.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, "..", "uploads");
-
-fs.mkdirSync(uploadsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const extension = path.extname(file.originalname || "").toLowerCase() || ".jpg";
-    cb(null, `attendance-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype?.startsWith("image/")) {
@@ -415,10 +398,9 @@ router.post("/teachers/upload", upload.single("photo"), (req, res) => {
     return res.status(400).json({ message: "Photo file is required." });
   }
 
-  return res.json({
-    photoUrl: `/uploads/${req.file.filename}`,
-    filename: req.file.filename,
-  });
+  const photoUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+  return res.json({ photoUrl });
 });
 
 router.put("/teachers/:id", requireAuth, async (req, res) => {
