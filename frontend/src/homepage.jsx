@@ -148,12 +148,12 @@ export default function Homepage() {
               </a>
 
               {/* Email */}
-              <a href="mailto:nihaswain7@gmail.com?subject=School Registration — AttendTrack&body=Hi, I'd like to register my school on AttendTrack.%0A%0ASchool Name: %0AAdmin Name: %0ACity: %0ANumber of Teachers: " style={{ textDecoration:"none" }}>
+              <a href="mailto:thoratganesh224@gmail.com?subject=School Registration — AttendTrack&body=Hi, I'd like to register my school on AttendTrack.%0A%0ASchool Name: %0AAdmin Name: %0ACity: %0ANumber of Teachers: " style={{ textDecoration:"none" }}>
                 <div className="contact-card" style={{ borderColor:"#1e3a5f" }}>
                   <div style={{ width:48, height:48, borderRadius:14, background:"#0c1a2e", border:"1px solid #1e3a5f", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>✉️</div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:13, color:"#64748b", marginBottom:3 }}>Email Us</div>
-                    <div style={{ fontSize:15, fontWeight:700, color:"#60a5fa" }}>nihaswain7@gmail.com</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:"#60a5fa" }}>thoratganesh224@gmail.com</div>
                     <div style={{ fontSize:11, color:"#3b82f6", marginTop:2 }}>Tap to send pre-filled email →</div>
                   </div>
                   <div style={{ fontSize:20, color:"#3b82f6" }}>→</div>
@@ -161,11 +161,11 @@ export default function Homepage() {
               </a>
 
               {/* Copy email */}
-              <div className="contact-card" onClick={() => copyToClipboard("nihaswain7@gmail.com", "email")} style={{ cursor:"pointer" }}>
+              <div className="contact-card" onClick={() => copyToClipboard("thoratganesh224@gmail.com", "email")} style={{ cursor:"pointer" }}>
                 <div style={{ width:48, height:48, borderRadius:14, background:"#0b0f1a", border:"1px solid #1e293b", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>📋</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, color:"#64748b", marginBottom:3 }}>Copy Email Address</div>
-                  <div style={{ fontSize:14, fontWeight:600, color:"#94a3b8", fontFamily:"monospace" }}>nihaswain7@gmail.com</div>
+                  <div style={{ fontSize:14, fontWeight:600, color:"#94a3b8", fontFamily:"monospace" }}>thoratganesh224@gmail.com</div>
                 </div>
                 <div style={{ fontSize:12, color: copied==="email"?"#22c55e":"#475569", fontWeight:600 }}>
                   {copied==="email" ? "✓ Copied!" : "Copy"}
@@ -391,7 +391,7 @@ export default function Homepage() {
         </div>
         <div style={{ display:"flex", gap:24, alignItems:"center" }}>
           <span style={{ fontSize:12, color:"#475569" }}>📞 +91 90755 01269</span>
-          <span style={{ fontSize:12, color:"#475569" }}>✉️ nihaswain7@gmail.com</span>
+          <span style={{ fontSize:12, color:"#475569" }}>✉️ thoratganesh224@gmail.com</span>
         </div>
         <p style={{ color:"#334155", fontSize:"12px" }}>Built for schools. Free forever.</p>
       </footer>

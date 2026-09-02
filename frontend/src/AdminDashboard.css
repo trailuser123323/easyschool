@@ -418,6 +418,20 @@
   color: #6b7280;
 }
 
+.teacher-monthly-photos {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.teacher-monthly-photos img {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
 .teacher-monthly-badge {
   padding: 7px 10px;
   border-radius: 999px;

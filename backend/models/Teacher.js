@@ -41,6 +41,8 @@ const teacherSchema = new mongoose.Schema(
           status: { type: String, default: "absent" },
           checkin: { type: String, default: "–" },
           checkout: { type: String, default: "–" },
+          loginPhoto: { type: String, default: "" },
+          checkoutPhoto: { type: String, default: "" },
         },
       ],
       default: [],

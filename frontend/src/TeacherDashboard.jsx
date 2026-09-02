@@ -107,6 +107,8 @@ function mergeAttendanceRecords(currentRecords, updates, now = new Date()) {
   if (updates.status) baseRecord.status = updates.status;
   if (updates.checkin) baseRecord.checkin = updates.checkin;
   if (updates.checkout) baseRecord.checkout = updates.checkout;
+  if ('loginPhoto' in updates) baseRecord.loginPhoto = updates.loginPhoto || '';
+  if ('checkoutPhoto' in updates) baseRecord.checkoutPhoto = updates.checkoutPhoto || '';
 
   if (index >= 0) {
     records[index] = baseRecord;
@@ -173,14 +175,17 @@ function Sidebar({ activeSection, onNav, onApplyLeave, teacher, onLogout }) {
 }
 
 // ─── STATS ROW ─────────────────────────────────────────────
-function StatsRow({ teacher }) {
+function StatsRow({ teacher, selectedDate, selectedData }) {
   const absentDays = Number(teacher?.absent) || 0;
   const leaveTaken = Number(teacher?.leave) || 0;
   const onTimeRate = teacher?.rate || '0%';
-  const lastCheckin = teacher?.checkin && teacher.checkin !== '–' ? teacher.checkin : 'Not checked in';
-  const presentStatus = teacher?.status === 'present' ? 'Present today' : teacher?.status === 'leave' ? 'On leave today' : 'Marked absent today';
+  const displayStatus = selectedData?.s || teacher?.status || 'absent';
+  const displayCheckin = selectedData?.i || teacher?.checkin;
+  const lastCheckin = displayCheckin && displayCheckin !== '–' ? displayCheckin : 'Not checked in';
+  const selectedLabel = selectedDate ? `Selected ${selectedDate}` : 'Today';
+  const presentStatus = displayStatus === 'present' ? `${selectedLabel}: Present` : displayStatus === 'leave' ? `${selectedLabel}: On leave` : `${selectedLabel}: Absent`;
   const stats = [
-    { label: 'Today', value: teacher?.status === 'present' ? 'Present' : teacher?.status === 'leave' ? 'Leave' : 'Absent', sub: presentStatus, color: teacher?.status === 'present' ? '#059669' : teacher?.status === 'leave' ? '#d97706' : '#dc2626' },
+    { label: selectedDate ? 'Selected Day' : 'Today', value: displayStatus === 'present' ? 'Present' : displayStatus === 'leave' ? 'Leave' : 'Absent', sub: presentStatus, color: displayStatus === 'present' ? '#059669' : displayStatus === 'leave' ? '#d97706' : '#dc2626' },
     { label: 'Absent Days', value: absentDays, sub: 'Recorded this month', color: '#dc2626' },
     { label: 'Leave Taken', value: leaveTaken, sub: 'Current month total', color: '#d97706' },
     { label: 'On-Time Rate', value: onTimeRate, sub: `Last check-in: ${lastCheckin}`, color: '#2563eb' },
@@ -857,7 +862,7 @@ function LeaveCard({ defaultOpen, showToast, teacher, onTeacherUpdate }) {
 }
 
 // ─── CALENDAR ──────────────────────────────────────────────
-function Calendar({ teacher }) {
+function Calendar({ teacher, selectedDate, onSelectDate }) {
   const NOW = new Date();
   const attendanceMap = buildAttendanceMap(teacher, NOW);
   const [cY, setCY] = useState(NOW.getFullYear());
@@ -918,8 +923,12 @@ function Calendar({ teacher }) {
             }
             const dotColor = c.data ? (c.data.s === 'present' ? '#059669' : c.data.s === 'absent' ? '#dc2626' : '#d97706') : null;
             return (
-              <div key={i} style={{ ...styles.calCell, background: bg, color, fontWeight }}
-                onClick={() => c.type === 'current' && setDayDetail({ d: c.day, data: c.data, today: c.today })}>
+              <div key={i} style={{ ...styles.calCell, background: bg, color, fontWeight, outline: c.key === selectedDate ? '2px solid #4f46e5' : 'none' }}
+                onClick={() => {
+                  if (c.type !== 'current') return;
+                  setDayDetail({ d: c.day, data: c.data, today: c.today });
+                  onSelectDate?.({ key: c.key, data: c.data });
+                }}>
                 <span>{c.day}</span>
                 {dotColor && !c.today && <div style={{ width: 4, height: 4, borderRadius: '50%', background: dotColor }}></div>}
               </div>
@@ -985,7 +994,7 @@ function EmptySection({ icon, title, msg }) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────
-function Dashboard({ announcements, showToast, openLeave, teacher, onTeacherUpdate }) {
+function Dashboard({ announcements, showToast, openLeave, teacher, onTeacherUpdate, selectedDate, selectedData, onSelectDate }) {
   return (
     <div>
       <div style={styles.topbar}>
@@ -998,7 +1007,7 @@ function Dashboard({ announcements, showToast, openLeave, teacher, onTeacherUpda
           <div style={styles.notifBtn}>🔔<div style={styles.notifDot}></div></div>
         </div>
       </div>
-      <StatsRow teacher={teacher} />
+      <StatsRow teacher={teacher} selectedDate={selectedDate} selectedData={selectedData} />
       <div style={styles.grid2}>
         <div style={styles.gridLeft}>
           <AttendanceCard teacher={teacher} showToast={showToast} onTeacherUpdate={onTeacherUpdate} />
@@ -1011,7 +1020,7 @@ function Dashboard({ announcements, showToast, openLeave, teacher, onTeacherUpda
           </div>
           <LeaveCard defaultOpen={openLeave} showToast={showToast} teacher={teacher} onTeacherUpdate={onTeacherUpdate} />
         </div>
-        <Calendar teacher={teacher} />
+        <Calendar teacher={teacher} selectedDate={selectedDate} onSelectDate={onSelectDate} />
       </div>
     </div>
   );
@@ -1104,7 +1113,7 @@ function LeaveSection({ showToast, teacher, onTeacherUpdate }) {
   );
 }
 
-function AttendanceHistorySection({ teacher }) {
+function AttendanceHistorySection({ teacher, selectedDate, selectedData, onSelectDate }) {
   const records = Array.isArray(teacher?.attendanceRecords)
     ? [...teacher.attendanceRecords].sort((left, right) => (right.date || '').localeCompare(left.date || ''))
     : [];
@@ -1118,6 +1127,28 @@ function AttendanceHistorySection({ teacher }) {
         </div>
         <div style={styles.dateChip}>{fmtDate(new Date())}</div>
       </div>
+
+      {selectedDate && (
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div className="card-title" style={styles.cardTitle}>Selected Date Details</div>
+            <button style={styles.calNav} onClick={() => onSelectDate?.(null)} aria-label="Clear selected date">×</button>
+          </div>
+          <div style={styles.cardBody}>
+            <div style={styles.attendanceDate}>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+            <div style={{ ...styles.attendanceBadge, display: 'inline-block', marginTop: 8, color: selectedData?.s === 'present' ? '#059669' : selectedData?.s === 'leave' ? '#d97706' : '#dc2626', background: selectedData?.s === 'present' ? '#0596691A' : selectedData?.s === 'leave' ? '#d977061A' : '#dc26261A' }}>
+              {selectedData?.s === 'present' ? 'Present' : selectedData?.s === 'leave' ? 'On Leave' : 'Absent'}
+            </div>
+            {selectedData?.s === 'present' && (
+              <div style={{ ...styles.attendanceMeta, marginTop: 10 }}>
+                Check-in: <b style={{ color: '#1a1a2e' }}>{selectedData.i || '–'}</b>
+                {' · '}
+                Check-out: <b style={{ color: '#1a1a2e' }}>{selectedData.o || '–'}</b>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div style={styles.grid2}>
         <div style={styles.gridLeft}>
@@ -1158,7 +1189,7 @@ function AttendanceHistorySection({ teacher }) {
             </div>
           </div>
         </div>
-        <Calendar teacher={teacher} />
+        <Calendar teacher={teacher} selectedDate={selectedDate} onSelectDate={onSelectDate} />
       </div>
     </div>
   );
@@ -1169,6 +1200,8 @@ export default function TeacherDashboard({ teacher, onLogout }) {
   const [teacherState, setTeacherState] = useState(() => normaliseTeacherForToday(teacher));
   const [todayKey, setTodayKey] = useState(() => getDateKey());
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedData, setSelectedData] = useState(null);
   const [toast, setToast] = useState(null);
   const [openLeave, setOpenLeave] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
@@ -1270,6 +1303,11 @@ export default function TeacherDashboard({ teacher, onLogout }) {
     setOpenLeave(true);
   }
 
+  function handleSelectDate(selection) {
+    setSelectedDate(selection?.key || null);
+    setSelectedData(selection?.data || null);
+  }
+
   function closeAnnouncementPopup() {
     if (popupAnnouncement) {
       localStorage.setItem(`teacher-last-seen-announcement-${teacher?.email || 'default'}`, popupAnnouncement.id);
@@ -1290,9 +1328,9 @@ export default function TeacherDashboard({ teacher, onLogout }) {
       `}</style>
       <Sidebar activeSection={activeSection} onNav={setActiveSection} onApplyLeave={handleApplyLeave} teacher={currentTeacher} onLogout={onLogout} />
       <main style={styles.main}>
-        {activeSection === 'dashboard' && <Dashboard announcements={announcements} showToast={showToast} openLeave={openLeave} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
+        {activeSection === 'dashboard' && <Dashboard announcements={announcements} showToast={showToast} openLeave={openLeave} teacher={currentTeacher} selectedDate={selectedDate} selectedData={selectedData} onSelectDate={handleSelectDate} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'students' && <><div style={styles.topbar}><div><div style={styles.pageTitle}>My Students</div><div style={styles.pageSub}>Class 9A — Science</div></div></div><EmptySection icon="👨‍🎓" title="Student data coming soon" msg="This section is under development. Your student list, attendance records, and performance data will appear here once the module is ready." /></>}
-        {activeSection === 'attendance' && <AttendanceHistorySection teacher={currentTeacher} />}
+        {activeSection === 'attendance' && <AttendanceHistorySection teacher={currentTeacher} selectedDate={selectedDate} selectedData={selectedData} onSelectDate={handleSelectDate} />}
         {activeSection === 'timetable' && <TimetableSection teacher={currentTeacher} />}
         {activeSection === 'leave' && <LeaveSection showToast={showToast} teacher={currentTeacher} onTeacherUpdate={(nextTeacher) => setTeacherState(normaliseTeacherForToday(nextTeacher))} />}
         {activeSection === 'announcements' && (

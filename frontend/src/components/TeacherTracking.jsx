@@ -4,8 +4,47 @@ import { resolveApiAssetUrl } from '../api';
 function getMonthAttendance(teacher, date = new Date()) {
   const records = Array.isArray(teacher?.attendanceRecords) ? teacher.attendanceRecords : [];
   const monthPrefix = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-  const monthlyRecords = records
-    .filter((record) => record?.date?.startsWith(monthPrefix))
+  const recordMap = new Map(records.filter((record) => record?.date).map((record) => [record.date, record]));
+  const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const today = new Date();
+  const lastDay = date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth()
+    ? date.getDate()
+    : monthEnd;
+
+  for (let day = 1; day <= lastDay; day += 1) {
+    const currentDate = new Date(date.getFullYear(), date.getMonth(), day);
+    if (currentDate.getDay() === 0 || currentDate.getDay() === 6) continue;
+    const key = `${monthPrefix}-${String(day).padStart(2, '0')}`;
+    if (!recordMap.has(key)) recordMap.set(key, { date: key, status: 'absent', checkin: '–', checkout: '–' });
+  }
+
+  (teacher?.leaveRequests || []).forEach((request) => {
+    if (request?.status?.toLowerCase() !== 'approved') return;
+    const dateParts = request.fromDate
+      ? [request.fromDate, request.toDate || request.fromDate]
+      : String(request.dates || '').split(/\s+[–-]\s+/);
+    if (!dateParts[0]) return;
+    const parseDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T00:00:00`)
+      : new Date(value);
+    const from = parseDate(dateParts[0]);
+    const to = parseDate(dateParts[1] || dateParts[0]);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return;
+    for (const currentDate = new Date(from); currentDate <= to; currentDate.setDate(currentDate.getDate() + 1)) {
+      const key = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+      if (key.startsWith(monthPrefix)) recordMap.set(key, { date: key, status: 'leave', checkin: '–', checkout: '–' });
+    }
+  });
+
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayRecord = recordMap.get(todayKey);
+  if (todayRecord) {
+    todayRecord.loginPhoto = todayRecord.loginPhoto || teacher.loginPhoto || '';
+    todayRecord.checkoutPhoto = todayRecord.checkoutPhoto || teacher.checkoutPhoto || '';
+  }
+
+  const monthlyRecords = [...recordMap.values()]
+    .filter((record) => record.date.startsWith(monthPrefix))
     .sort((left, right) => (right.date || '').localeCompare(left.date || ''));
 
   return {
@@ -198,6 +237,12 @@ export default function TeacherTracking({ teachers }) {
                         <div className="teacher-monthly-meta">
                           In: {record.checkin || '–'} · Out: {record.checkout || '–'}
                         </div>
+                        {(record.loginPhoto || record.checkoutPhoto) && (
+                          <div className="teacher-monthly-photos">
+                            {record.loginPhoto && <img src={resolveApiAssetUrl(record.loginPhoto)} alt={`${selectedTeacher.name} check-in on ${record.date}`} />}
+                            {record.checkoutPhoto && <img src={resolveApiAssetUrl(record.checkoutPhoto)} alt={`${selectedTeacher.name} check-out on ${record.date}`} />}
+                          </div>
+                        )}
                       </div>
                       <div className={`teacher-monthly-badge teacher-monthly-${record.status || 'absent'}`}>
                         {(record.status || 'absent').toUpperCase()}
