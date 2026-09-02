@@ -80,6 +80,8 @@ function updateAttendanceRecord(teacher, updates) {
   if (updates.status) baseRecord.status = updates.status;
   if (updates.checkin) baseRecord.checkin = updates.checkin;
   if (updates.checkout) baseRecord.checkout = updates.checkout;
+  if ('loginPhoto' in updates) baseRecord.loginPhoto = updates.loginPhoto || '';
+  if ('checkoutPhoto' in updates) baseRecord.checkoutPhoto = updates.checkoutPhoto || '';
 
   if (index >= 0) {
     records[index] = baseRecord;
@@ -99,8 +101,9 @@ function serializeTeacher(teacher) {
   userData.checkin = todayAttendance.checkin;
   userData.checkout = todayAttendance.checkout;
   userData.onDuty = todayAttendance.status === "present" ? Boolean(userData.onDuty) : false;
-  userData.loginPhoto = todayAttendance.hasCheckin ? userData.loginPhoto || "" : "";
-  userData.checkoutPhoto = todayAttendance.hasCheckout ? userData.checkoutPhoto || "" : "";
+  const todayRecord = userData.attendanceRecords?.find((entry) => entry?.date === getTodayKey());
+  userData.loginPhoto = todayAttendance.hasCheckin ? userData.loginPhoto || todayRecord?.loginPhoto || "" : "";
+  userData.checkoutPhoto = todayAttendance.hasCheckout ? userData.checkoutPhoto || todayRecord?.checkoutPhoto || "" : "";
   userData.lastLogin = todayAttendance.hasCheckin && isSameCalendarDay(userData.lastLogin)
     ? userData.lastLogin
     : null;

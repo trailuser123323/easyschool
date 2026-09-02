@@ -219,6 +219,8 @@ function updateAttendanceRecord(teacher, updates) {
   if (updates.status) baseRecord.status = updates.status;
   if (updates.checkin) baseRecord.checkin = updates.checkin;
   if (updates.checkout) baseRecord.checkout = updates.checkout;
+  if ('loginPhoto' in updates) baseRecord.loginPhoto = updates.loginPhoto || '';
+  if ('checkoutPhoto' in updates) baseRecord.checkoutPhoto = updates.checkoutPhoto || '';
 
   if (index >= 0) {
     records[index] = baseRecord;
